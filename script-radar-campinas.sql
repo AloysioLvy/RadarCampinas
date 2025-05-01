@@ -28,9 +28,9 @@ alter table
 	"Bairros" add primary key("id_bairro");
 
 alter table 
-	"Denuncia" add constraint "denuncia_id_crime_foreign" foreign key("id_crime") references "Crimes"("id_crime");
+	"Denuncia" add constraint "id_crime_foreign" foreign key("id_crime") references "Crimes"("id_crime");
 
 alter table 
-	"Denuncia" add constraint "denuncia_id_bairro_foreign" foreign key("id_bairro") references "Bairros"("id");
+	"Denuncia" add constraint "_id_bairro_foreign" foreign key("id_bairro") references "Bairros"("id");
 
 
