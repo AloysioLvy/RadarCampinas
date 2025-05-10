@@ -13,11 +13,40 @@ import { CardFooter } from "@/components/ui/card"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 
 export default function ChatbotPage() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/chat",
-  })
-
   const [location, setLocation] = useState("")
+  const [messages, setMessages] = useState<any[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    const userMessage = { role: "user", content: input }
+    setMessages((prev) => [...prev, userMessage])
+    setIsLoading(true)
+
+    try {
+      const res = await fetch("/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ denuncia: input }),
+      })
+      const data = await res.json()
+
+      const botMessage = { role: "assistant", content: data.resultado }
+      setMessages((prev) => [...prev, botMessage])
+    } catch (err) {
+      console.error("Erro:", err)
+    } finally {
+      setIsLoading(false)
+      setInput("")
+    }
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -46,7 +75,7 @@ export default function ChatbotPage() {
                   Localização da Ocorrência
                 </label>
                 <div className="flex">
-
+                  {/* Campo de localização se quiser usar depois */}
                 </div>
               </div>
 
