@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      # Conexão com o PostgreSQL
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: seu_usuario
+      DB_PASSWORD: sua_senha
+      DB_NAME: seu_banco
+      DB_SSLMODE: disable
+      DB_TIMEZONE: UTC
+    restart: unless-stopped
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: seu_usuario
+      POSTGRES_PASSWORD: sua_senha
+      POSTGRES_DB: seu_banco
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  db_data:
