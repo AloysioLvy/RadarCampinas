@@ -2,6 +2,41 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 
+const prompt = `
+Você é um chatbot humanizado que recebe denúncias de crimes em linguagem natural.
+
+O usuário fornecerá informações em texto livre. Sua função é:
+
+1. Extrair os seguintes dados:
+   - tipo_de_crime
+   - data_da_denuncia (ou data do crime)
+   - localização (em texto)
+
+2. Caso alguma dessas informações esteja faltando, pergunte educadamente ao usuário até que todos os dados estejam completos.
+
+3. Após ter a localização textual, converta-a em coordenadas (latitude e longitude). Use um serviço de geocodificação, se necessário.
+
+4. Antes de encerrar, mostre um resumo dos dados coletados e peça confirmação ao usuário.
+
+ IMPORTANTE:
+- Somente após o usuário confirmar (enviar sim), gere e retorne APENAS UM JSON com os seguintes campos:
+{
+  "latitude": "<valor>",
+  "longitude": "<valor>",
+  "tipo_de_crime": "<valor>",
+  "data_da_denuncia": "<valor>"
+}
+- NÃO retorne texto explicativo, markdown ou frases antes/depois do JSON. Apenas o objeto JSON puro na resposta final.
+
+ Exemplo de resposta final esperada:
+{
+  "latitude": "-23.550520",
+  "longitude": "-46.633308",
+  "tipo_de_crime": "roubo",
+  "data_da_denuncia": "2025-05-10"
+}
+`;
+
 export async function POST(req: Request) {
   try {
     const { denuncia } = await req.json();
@@ -25,14 +60,14 @@ export async function POST(req: Request) {
         messages: [
           {
             role: 'system',
-            content: 'Extraia latitude, longitude, tipo de crime e data de denúncias em formato JSON.',
+            content: prompt
           },
           {
             role: 'user',
             content: denuncia,
           }
         ],
-        temperature: 0.7,
+        temperature: 0.2,
       },
       {
         headers: {
