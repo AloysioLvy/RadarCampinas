@@ -8,7 +8,7 @@ import (
 )
 
 
-tpye Config struct {
+type Config struct {
 	DBHost     string
 	DBPort     string 
 	DBUser     string
@@ -34,7 +34,7 @@ func Load() (*Config, error) {
 		DBTimezone: os.Getenv("DB_TIMEZONE"),
 	}
 
-	if cfg.DB_HOST == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
+	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
 		return nil, fmt.Errorf("Variaveis de ambiente de DB não configuradas")
 	}
 	return cfg, nil

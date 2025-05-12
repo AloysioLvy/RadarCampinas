@@ -3,9 +3,10 @@ package database
 import (
 	"fmt"
 
-	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
+
 
 )
 
