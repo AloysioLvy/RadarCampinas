@@ -26,8 +26,10 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
               message.role === "user" ? "bg-[#4d4dff] text-white" : "bg-gray-200 text-gray-800"
             }`}
           >
-            {message.content}
-          </div>  
+            {message.content.split('\n').map((line, index) => (
+              <p key={index}>{line}</p>
+            ))}
+          </div>
         </div>
       ))}
     </div>
