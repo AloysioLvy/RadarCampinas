@@ -30,10 +30,12 @@ O usuário fornecerá informações em texto livre. Sua função é:
 
  Exemplo de resposta final esperada:
 {
-  "latitude": "-23.550520",
-  "longitude": "-46.633308",
-  "tipo_de_crime": "roubo",
-  "data_da_denuncia": "2025-05-10"
+  Aqui está o resumo dos dados coletados:
+- Tipo de crime: assalto
+- Data da denúncia: 11/11/2022
+- Localização: Rua Antonio Volpe, nº 386
+- Latitude: -23.550520
+- Longitude: -46.633308
 }
 `;
 
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
     }
 
     console.log("DENUNCIA:", denuncia);
-    console.log("API_KEY presente:", process.env.OPENAI_API_KEY);
+   
     
     // Endpoint correto para a API atual
     const response = await axios.post(
@@ -76,9 +78,40 @@ export async function POST(req: Request) {
         },
       }
     );
-    
+    const denunicaCrime = {
+      nome: "",
+      latitude: "",
+      longitude: "",
+      tipo_de_crime:"" ,
+      data_da_denuncia: "",
+      peso_crime: 3
+    };
+
     const result = response.data.choices[0].message.content;
     console.log('Resposta da OpenAI:', result);
+    
+
+    if (result.includes("resumo dos dados coletados:")){
+      const tipoCrimeMatch = result.match(/Tipo de crime:\s*(.+)/i);
+      const dataMatch = result.match(/Data da denúncia:\s*(\d{2}\/\d{2}\/\d{4})/i);
+      const localMatch = result.match(/Localização:\s*(.+)/i);
+      const latMatch = result.match(/Latitude:\s*(-?\d+\.\d+)/);
+      const longMatch = result.match(/Longitude:\s*(-?\d+\.\d+)/);
+      denunicaCrime.nome = localMatch[1]
+      denunicaCrime.latitude = latMatch[1]
+      denunicaCrime.longitude = longMatch[1]
+      denunicaCrime.data_da_denuncia = dataMatch[1]
+      denunicaCrime.peso_crime = 3
+      denunicaCrime.tipo_de_crime = tipoCrimeMatch[1]
+      console.log("-------------->A DENUNCIA DEU CERTO <---------")
+      console.log("{"+denunicaCrime.latitude+"}")
+      console.log("{"+denunicaCrime.longitude+"}")
+      console.log("{"+denunicaCrime.tipo_de_crime+"}")
+      console.log("{"+denunicaCrime.peso_crime+"}")
+      console.log("{"+denunicaCrime.data_da_denuncia+"}")
+    }
+    const denunciaJSON = JSON.stringify(denunicaCrime)
+    console.log("DENUNCIA JSON:\n"+denunciaJSON)
     
     return NextResponse.json({ resultado: result });
   } catch (error: any) {

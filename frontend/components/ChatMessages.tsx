@@ -27,7 +27,7 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
             }`}
           >
             {message.content}
-          </div>
+          </div>  
         </div>
       ))}
     </div>
