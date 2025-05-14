@@ -1,9 +1,8 @@
-'use client'
+"use client"
 
 import { useState } from "react"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
-import { useChat } from "ai/react"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import ChatInput from "@/components/ChatInput"
@@ -11,12 +10,14 @@ import ChatMessages from "@/components/ChatMessages"
 import InstructionsCard from "@/components/InstructionsCard"
 import { CardFooter } from "@/components/ui/card"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { AlertModel } from "@/components/AlertModel"
 
 export default function ChatbotPage() {
   const [location, setLocation] = useState("")
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showAlert, setShowAlert] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -39,6 +40,13 @@ export default function ChatbotPage() {
       const data = await res.json()
 
       const botMessage = { role: "assistant", content: data.resultado }
+      const botMessageContent = botMessage.content
+
+      
+      if (botMessageContent.includes("resumo dos dados coletados:")) {  
+        setShowAlert(true)
+      }
+
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
       console.error("Erro:", err)
@@ -51,6 +59,11 @@ export default function ChatbotPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
+
+      {/* condicao */}
+      {showAlert && (
+        <AlertModel onClose={() => setShowAlert(false)} />
+      )}
 
       <main className="flex-1 container mx-auto p-4">
         <div className="max-w-3xl mx-auto">
