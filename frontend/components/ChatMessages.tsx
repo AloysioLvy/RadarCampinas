@@ -29,6 +29,7 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
             {message.content.split('\n').map((line, index) => (
               <p key={index}>{line}</p>
             ))}
+            
           </div>
         </div>
       ))}
