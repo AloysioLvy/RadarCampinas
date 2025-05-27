@@ -1,11 +1,12 @@
 package models
 
-type Crime struct {
-	IDCrime 	int64   `gorm:"column:id_crime;primaryKey" json:"id_crime"`
-	NomeCrime	*string `gorm:"column:nome_crime" json:nome_crime"`
-	PesoCrime	*int16 	`gorm:"column:peso_crime" json:peso_crime"`
-}
+import "time"
 
-func (Crime) TableName() string {
-	return "Crimes"
+// Crime representa o tipo de crime e seu peso
+type Crime struct {
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	TipoDeCrime string    `json:"tipo_de_crime" gorm:"size:255;not null"`
+	PesoCrime   int       `json:"peso_crime" gorm:"not null"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
