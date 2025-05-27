@@ -7,12 +7,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
+	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/controllers"
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/database"
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/models"
-	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/controllers"
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
 )
-
 
 func main() {
 	// Carregar as configs
@@ -33,14 +32,14 @@ func main() {
 	}
 
 	// 4. Instancia serviços
-	crimeSvc := services.NewCrimeService(db)
+	// crimeSvc := services.NewCrimeService(db)
 	denunciaSvc := services.NewDenunciaService(db)
-	bairroSvc := services.NewBairroService(db)
+	// bairroSvc := services.NewBairroService(db)
 
 	// 5. Cria controllers
-	crimeCtrl := controllers.NewCrimeController(crimeSvc)
+	//crimeCtrl := controllers.NewCrimeController(crimeSvc)
 	denunciaCtrl := controllers.NewDenunciaController(denunciaSvc)
-	bairroCtrl := controllers.NewBairroController(bairroSvc)
+	//bairroCtrl := controllers.NewBairroController(bairroSvc)
 
 	// 6. Inicializa Echo
 	e := echo.New()
@@ -49,8 +48,8 @@ func main() {
 
 	// 7. Registra rotas
 	api := e.Group("/api/v1")
-	crimeCtrl.Register(api)
-	bairroCtrl.Register(api)
+	// crimeCtrl.Register(api)
+	// bairroCtrl.Register(api)
 	denunciaCtrl.Register(api)
 
 	// 8. Roda Servidor

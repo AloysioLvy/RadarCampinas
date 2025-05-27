@@ -2,13 +2,14 @@ package models
 
 import "time"
 
+// Denuncia representa uma denúncia completa, relacionando Bairro e Crime
 type Denuncia struct {
-	IDDenuncia	int64		`gorm:"column:id_denuncia;primaryKey" json:"id_denuncia"`
-	IDCrime		int64		`gorm:"column:id_crime" json:"id_crime"`
-	IDBairro	int64		`gorm:"column:id_bairro" json:"id_bairro"`
-	Data 		time.Time 	`gorm:"column:data" json:"data"`
-}
-
-func (Denuncia) TableName() string {
-	return "Denuncia"
+	ID             uint      `json:"id" gorm:"primaryKey"`
+	BairroID       uint      `json:"bairro_id" gorm:"not null"`
+	Bairro         Bairro    `json:"bairro" gorm:"foreignKey:BairroID"`
+	CrimeID        uint      `json:"crime_id" gorm:"not null"`
+	Crime          Crime     `json:"crime" gorm:"foreignKey:CrimeID"`
+	DataCrime string    `json:"data_da_denuncia" gorm:"not null"`
+	CreatedAt      time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }

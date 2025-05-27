@@ -1,13 +1,13 @@
 package models
 
-type Bairro struct {
-	IDBairro 	int64 	`gorm:"column:id_bairro;primaryKey" json:"id_bairro"`
-	Latitude	string	`gorm:"column:latitude" json:"latitude"`
-	Longitude	string	`gorm:"column:longitude" json:"longitude"`
-	Nome 		string	`gorm:"column:nome" json:"nome"`
-	PesoBairro	int64	`gorm:"column:peso_bairro" json:"peso_bairro"`
-}
+import "time"
 
-func (Bairro) TableName() string {
-	return "Bairros"
+// Bairro representa a localização geográfica de uma denúncia
+type Bairro struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	Nome      string    `json:"nome" gorm:"size:255;not null"`
+	Latitude  string    `json:"latitude" gorm:"not null"`
+	Longitude string    `json:"longitude" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
