@@ -31,6 +31,6 @@ alter table
 	"Denuncia" add constraint "id_crime_foreign" foreign key("id_crime") references "Crimes"("id_crime");
 
 alter table 
-	"Denuncia" add constraint "_id_bairro_foreign" foreign key("id_bairro") references "Bairros"("id");
+	"Denuncia" add constraint "id_bairro_foreign" foreign key("id_bairro") references "Bairros"("id_bairro");
 
 

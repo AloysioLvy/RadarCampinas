@@ -101,6 +101,12 @@ func (ctr *DenunciaController) ReceberDenunciaTexto(c echo.Context) error {
         )
     }
 
+    // gerar id_denuncia pela model (orm - query)
+    // alocar as linhas da table em seus respectivos lugares.
+
     // 4. Retorna a denuncia criada com stts 201
     return c.JSON(http.StatusCreated, denuncia)
+
+    
+
 }

@@ -40,80 +40,79 @@ func (s *denunciaService) CreateDenuncia(ctx context.Context, d *models.Denuncia
 
 // Processa uma denuncia em texto livre
 func (s *denunciaService) ProcessarDenunciaTexto(ctx context.Context, req *models.DenunciaRequest) (*models.Denuncia, error) {
-    // Inicia uma transação para garantir a consistencia dos dados
-    tx := s.db.WithContext(ctx).Begin()
-    if tx.Error != nil {
-        return nil, tx.Error
-    }
+	// Inicia uma transação para garantir a consistencia dos dados
+	tx := s.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
 
-    // Em caso de erro, faz rollback da transacao
-    defer func() {
-        if r := recover(); r != nil {
-            tx.Rollback()
-        }
-    }()
+	// Em caso de erro, faz rollback da transacao
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
-    // 1. Cria ou encontra o bairro com base nas coordenadas
-    bairro := models.Bairro{
-        Nome: req.Nome,
-        Latitude: req.Latitude,
-        Longitude: req.Longitude,
-    }
+	// 1. Cria ou encontra o bairro com base nas coordenadas
+	bairro := models.Bairro{
+		Nome:      req.Nome,
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+	}
 
-    // Verifica se ja existe um bairro com essas coordenadas
-    result := tx.Where("latitude = ? AND longitude = ?", req.Latitude, req.Longitude).First(&bairro)
-    if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-        tx.Rollback()
-        return nil, result.Error
-    }
+	// Verifica se ja existe um bairro com essas coordenadas
+	result := tx.Where("latitude = ? AND longitude = ?", req.Latitude, req.Longitude).First(&bairro)
+	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+		tx.Rollback()
+		return nil, result.Error
+	}
 
-    // Se nao encontrou, cria um novo bairro
-    if result.Error == gorm.ErrRecordNotFound {
-        if err := tx.Create(&bairro).Error; err != nil {
-            tx.Rollback()
-            return nil, err
-        }
-    }
+	// Se nao encontrou, cria um novo bairro
+	if result.Error == gorm.ErrRecordNotFound {
+		if err := tx.Create(&bairro).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
 
-    // 2 . Cria ou encontra o crime com base no tipo e peso
-    crime := models.Crime{
-        TipoDeCrime: req.TipoDeCrime,
-        PesoCrime: req.PesoCrime,
-    }
+	// 2 . Cria ou encontra o crime com base no tipo e peso
+	crime := models.Crime{
+		TipoDeCrime: req.TipoDeCrime,
+		PesoCrime:   req.PesoCrime,
+	}
 
-    // Verifica se ja existe um crime com esse tipo ?? 
+	// Verifica se ja existe um crime com esse tipo ??
 
-    // Se nao, cria novo crime
-    if result.Error == gorm.ErrRecordNotFound{
-        if err := tx.Create(&crime).Error; err != nil {
-            tx.Rollback()
-            return nil, err
-        }
-    }
+	// Se nao, cria novo crime
+	if result.Error == gorm.ErrRecordNotFound {
+		if err := tx.Create(&crime).Error; err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
 
-    // 3.Cria a denuncia relacionando bairro e crime
-    denuncia := models.Denuncia{
-        BairroID: bairro.ID,
-        CrimeID: crime.ID,
-        DataCrime: req.DataCrime,
-    }
+	// 3.Cria a denuncia relacionando bairro e crime
+	denuncia := models.Denuncia{
+		BairroID:  bairro.BairroID,
+		CrimeID:   crime.CrimeID,
+		DataCrime: req.DataCrime,
+	}
 
-    if err := tx.Create(&denuncia).Error; err != nil {
-        tx.Rollback()
-        return nil, err
-    }
+	if err := tx.Create(&denuncia).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 
-    // 4. Carrega os relacionamentos para retornar a denuncia completa
-    if err := tx.Preload("Bairro").Preload("Crime").First(&denuncia, denuncia.ID).Error;
-    err != nil {
-        tx.Rollback()
-        return nil, err
-    }
+	// 4. Carrega os relacionamentos para retornar a denuncia completa
+	if err := tx.Preload("Bairro").Preload("Crime").First(&denuncia, denuncia.DenunciaID).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 
-    // Commit da transacao
-    if err := tx.Commit().Error; err != nil {
-        return nil, err
-    }
+	// Commit da transacao
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
 
-    return &denuncia, nil
+	return &denuncia, nil
 }
