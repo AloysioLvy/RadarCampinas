@@ -27,7 +27,7 @@ func main() {
 	}
 
 	// Auto-migrate -> a estudar (provisorio)
-	if err := db.AutoMigrate(&models.Crime{}, &models.Bairro{}, &models.Denuncia{}); err != nil {
+	if err := db.AutoMigrate(&models.Denuncia{}, &models.Crime{}, &models.Bairro{}); err != nil {
 		log.Fatalf("migration failed: %v", err)
 	}
 
