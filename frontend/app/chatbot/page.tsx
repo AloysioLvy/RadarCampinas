@@ -23,38 +23,53 @@ export default function ChatbotPage() {
     setInput(e.target.value)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim()) return
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!input.trim()) return;
 
-    const userMessage = { role: "user", content: input }
-    setMessages((prev) => [...prev, userMessage])
-    setIsLoading(true)
+  const userMessage = { role: "user", content: input };
+  const newMessages = [...messages, userMessage];
 
-    try {
-      const res = await fetch("/api", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia: input }),
-      })
-      const data = await res.json()
+  setMessages(newMessages);
+  setIsLoading(true);
 
-      const botMessage = { role: "assistant", content: data.resultado }
-      const botMessageContent = botMessage.content
+  try {
+    const res = await fetch("/api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: newMessages }),
+    });
 
-      
-      if (botMessageContent.includes("resumo dos dados coletados:")) {  
-        setShowAlert(true)
-      }
+    const data = await res.json();
+    console.log("🔧 Resposta do backend:", data);
 
-      setMessages((prev) => [...prev, botMessage])
-    } catch (err) {
-      console.error("Erro:", err)
-    } finally {
-      setIsLoading(false)
-      setInput("")
+    // Verifica se o backend retornou um JSON final (confirmado)
+    if (data.tipo_de_crime && data.data_da_denuncia && data.localizacao) {
+      console.log("✅ JSON Final da Denúncia:", data);
+
+      alert("Denúncia confirmada! Dados enviados. Veja no console.");
+
+      // Limpa tudo e encerra o chat
+      setMessages([]);
+      setInput("");
+      return;
     }
+
+    // Se não for JSON final, adiciona a resposta no chat
+    const botMessage = { role: "assistant", content: data.resultado };
+    setMessages((prev) => [...prev, botMessage]);
+
+    if (botMessage.content.includes("resumo dos dados coletados:")) {
+      setShowAlert(true);
+    }
+  } catch (err) {
+    console.error("❌ Erro:", err);
+  } finally {
+    setIsLoading(false);
+    setInput("");
   }
+};
+
 
   return (
     <div className="flex flex-col min-h-screen">

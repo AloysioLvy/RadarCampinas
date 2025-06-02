@@ -1,4 +1,6 @@
 // components/ChatMessages.tsx
+'use client'
+
 import { AlertTriangle } from "lucide-react"
 import { Message } from "ai"
 
