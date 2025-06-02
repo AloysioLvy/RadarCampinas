@@ -31,7 +31,6 @@ Pergunte: "Está correto? (responda sim ou não)"
 Se o usuário responder "não", reinicie o processo de coleta.
 `;
 
-// ✅ Array de crimes hediondos
 const crimesHediondos = [
   "homicídio qualificado",
   "latrocínio",
@@ -53,7 +52,6 @@ const crimesHediondos = [
   "invasão de dispositivo informático com finalidade sexual envolvendo criança ou adolescente"
 ];
 
-// ✅ Função para verificar se é crime hediondo
 function calcularPesoCrime(tipoDeCrime: string): number {
   const crimeNormalizado = tipoDeCrime.trim().toLowerCase();
   const isHediondo = crimesHediondos.some(
@@ -62,7 +60,6 @@ function calcularPesoCrime(tipoDeCrime: string): number {
   return isHediondo ? 9 : 3;
 }
 
-// ✅ Função para geocodificar o endereço
 async function geocodeAddress(address: string) {
   try {
     const url = "https://nominatim.openstreetmap.org/search";
@@ -121,14 +118,11 @@ export async function POST(req: Request) {
     try {
       finalData = JSON.parse(result);
     } catch {
-      // Não é um JSON final ainda (provavelmente aguardando confirmação)
     }
 
     if (finalData && finalData.localizacao) {
-      // 🧠 Calcula peso do crime
       const pesoCrime = calcularPesoCrime(finalData.tipo_de_crime);
 
-      // 🌎 Geolocalização
       const coords = await geocodeAddress(finalData.localizacao);
 
       return NextResponse.json({
