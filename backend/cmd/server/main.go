@@ -31,15 +31,15 @@ func main() {
 		log.Fatalf("migration failed: %v", err)
 	}
 
-	// 4. Instancia serviços
+	// 4. Instancia serviços / Injeção de dependencias
 	// crimeSvc := services.NewCrimeService(db)
 	denunciaSvc := services.NewDenunciaService(db)
-	// bairroSvc := services.NewBairroService(db)
+	bairroSvc := services.NewBairroService(db)
 
 	// 5. Cria controllers
 	//crimeCtrl := controllers.NewCrimeController(crimeSvc)
 	denunciaCtrl := controllers.NewDenunciaController(denunciaSvc)
-	//bairroCtrl := controllers.NewBairroController(bairroSvc)
+	bairroCtrl := controllers.NewBairroController(bairroSvc)
 
 	// 6. Inicializa Echo
 	e := echo.New()
@@ -49,8 +49,9 @@ func main() {
 	// 7. Registra rotas
 	api := e.Group("/api/v1")
 	// crimeCtrl.Register(api)
-	// bairroCtrl.Register(api)
+	bairroCtrl.Register(api)
 	denunciaCtrl.Register(api)
+	//denunciaCtrl.ReceberDenunciaTexto(denunciaCtrl)
 
 	// 8. Roda Servidor
 	e.Logger.Fatal(e.Start(":8080"))
