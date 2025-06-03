@@ -33,31 +33,32 @@ Se o usuário responder "não", reinicie o processo de coleta.
 `;
 
 const crimesHediondos = [
-  "homicídio qualificado",
-  "latrocínio",
-  "extorsão mediante sequestro",
-  "estupro",
-  "estupro de vulnerável",
-  "epidemia com resultado morte",
-  "falsificação de medicamento",
-  "falsificação de produto terapêutico",
-  "genocídio",
-  "posse ou porte ilegal de arma de fogo de uso restrito",
-  "tráfico de drogas",
-  "tortura",
-  "financiamento ao tráfico de drogas",
-  "assassinato em grupo de extermínio",
-  "violência sexual mediante fraude",
-  "exploração sexual de criança ou adolescente",
-  "favorecimento à prostituição de criança ou adolescente",
-  "invasão de dispositivo informático com finalidade sexual envolvendo criança ou adolescente"
+      "latrocínio",
+      "homicídio qualificado",
+      "homicídio praticado por grupo de extermínio",
+      "feminicídio",
+      "genocídio",
+      "estupro",
+      "estupro de vulnerável",
+      "atentado violento ao pudor",
+      "favorecimento à prostituição",
+      "exploração sexual",
+      "tráfico de pessoas",
+      "tráfico de drogas",
+      "organização criminosa",
+      "comércio ilegal de armas",
+      "extorsão qualificada",
+      "sequestro e cárcere privado",
+      "extorsão mediante seqüestro",
+      "envenenamento de alimentos",
+      "epidemia com resultado morte",
+      "falsificação de medicamentos",
+      "tráfico internacional de armas",
+      'Sequestro e extorsão qualificada'
 ];
-
-function calcularPesoCrime(tipoDeCrime: string): number {
+function calcularPesoCrime(tipoDeCrime:string):number {
   const crimeNormalizado = tipoDeCrime.trim().toLowerCase();
-  const isHediondo = crimesHediondos.some(
-    (crime) => crime.toLowerCase() === crimeNormalizado
-  );
+  const isHediondo = crimesHediondos.some(crime => crime.toLowerCase().includes(crimeNormalizado));
   return isHediondo ? 9 : 3;
 }
 
@@ -78,9 +79,11 @@ async function geocodeAddress(address: string) {
       return null;
     }
     const { lat, lon } = response.data[0];
-    console.log(response.data[0])
+    const display_name = response.data[0].display_name;
+    const neighborhood = display_name.split(",")
     return { 
-      latitude: lat, longitude: lon };
+      latitude: lat, longitude: lon,  localizacao:neighborhood[2]};
+      
   } catch (error) {
     console.error("Erro na geocodificação:", error);
     return null;
@@ -90,8 +93,7 @@ async function geocodeAddress(address: string) {
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
-    console.log("resposta do usuario = " + messages)
-
+    
     if (!process.env.OPENAI_API_KEY) {
       console.error("API key não encontrada");
       return NextResponse.json(
@@ -119,7 +121,7 @@ export async function POST(req: Request) {
     console.log("Resposta OpenAI:", result);
 
     let finalData = null;
-    console.log("result = " + result)
+    
     try {
       finalData = JSON.parse(result);
       console.log("final data = " + finalData)
@@ -129,9 +131,8 @@ export async function POST(req: Request) {
 
     if (finalData && finalData.localizacao) {
       const pesoCrime = calcularPesoCrime(finalData.tipo_de_crime);
-      console.log("Crime"+finalData.tipo_de_crime)
       const coords = await geocodeAddress(finalData.localizacao);
-      console.log(JSON.stringify(finalData))
+      
 
 
       const payload = {
@@ -139,6 +140,7 @@ export async function POST(req: Request) {
         peso_crime: pesoCrime,
         latitude: coords?.latitude || null,
         longitude: coords?.longitude || null,
+        localizacao: coords?.localizacao||null,
       };
       console.log("PAYLOAD"+JSON.stringify(payload))
       try {
