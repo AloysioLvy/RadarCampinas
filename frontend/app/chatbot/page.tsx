@@ -12,12 +12,16 @@ import InstructionsCard from "@/components/InstructionsCard"
 import { ArrowLeft } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
+
 export default function ChatbotPage() {
   const [location, setLocation] = useState("")
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
+  const [botMessage, setBotMessage] = useState("")
+  
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -27,22 +31,28 @@ export default function ChatbotPage() {
     e.preventDefault()
     if (!input.trim()) return
 
+  
+
     const userMessage = { role: "user", content: input }
-    setMessages((prev) => [...prev, userMessage])
+    const newMessages = [...messages, userMessage]
+
+
+    setMessages(newMessages)
     setIsLoading(true)
 
     try {
       const res = await fetch("/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia: input }),
+        body: JSON.stringify({ messages: newMessages }),
       })
       const data = await res.json()
 
       const botMessage = { role: "assistant", content: data.resultado }
       const botMessageContent = botMessage.content
 
-      if (botMessageContent.includes("resumo dos dados coletados:")) {
+      if (botMessageContent.includes("Está correto")) {
+        setBotMessage(botMessageContent)
         setShowAlert(true)
       }
 
@@ -58,16 +68,24 @@ export default function ChatbotPage() {
   const handleConfirm = async () => {
     // Add user confirmation message
     const confirmMessage = { role: "user", content: "Sim, confirmo que todas as informações estão corretas." }
+    const confirmMessageContent = confirmMessage.content
     setMessages((prev) => [...prev, confirmMessage])
     setShowAlert(false)
     setIsLoading(true)
 
+    const userMessage = { role: "user", content: input }
+    const newMessages = [...messages, userMessage]
+    const newMessagesContent = [...messages, confirmMessage]
+
+
+    
+    
+
     try {
-      // Send confirmation to API
       const res = await fetch("/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia: "Sim, confirmo que todas as informações estão corretas." }),
+        body: JSON.stringify({ messages: newMessagesContent }),
       })
       const data = await res.json()
 

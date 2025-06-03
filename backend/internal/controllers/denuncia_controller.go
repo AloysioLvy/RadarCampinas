@@ -2,7 +2,7 @@ package controllers
 
 import (
     "net/http"
-
+    "fmt"
     "github.com/labstack/echo/v4"
     "github.com/AloysioLvy/TccRadarCampinas/backend/internal/models"
     "github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
@@ -97,6 +97,8 @@ func (ctr *DenunciaController) ReceberDenunciaTexto(c echo.Context) error {
 
     // 3. Processa a denuncia usando o serviço
     denuncia, err := ctr.svc.ProcessarDenunciaTexto(c.Request().Context(), req)
+    fmt.Print("Denuncia",denuncia)
+
     if err != nil {
         return c.JSON(
             http.StatusInternalServerError,
