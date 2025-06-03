@@ -60,7 +60,7 @@ func (s *denunciaService) ProcessarDenunciaTexto(ctx context.Context, req *model
 	err := tx.Where("latitude = ? AND longitude = ?", req.Latitude, req.Longitude).First(&bairro).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// 1. Cria ou encontra o bairro com base nas coordenadas
-		bairro := models.Bairro{
+		bairro = models.Bairro{
 			Nome:       req.Nome,
 			Latitude:   req.Latitude,
 			Longitude:  req.Longitude,
