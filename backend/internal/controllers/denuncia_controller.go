@@ -34,6 +34,9 @@ func (ctr *DenunciaController) Register(g *echo.Group) {
 
     // Processar denuncias em texto livre
     g.POST("/denuncias/texto", ctr.ReceberDenunciaTexto)
+
+    // Lista denuncias
+    g.GET("/denuncias", ctr.GetDenuncias)
 }
 
 // CreateDenuncia trata requisições HTTP POST em "/denuncias".
@@ -107,6 +110,16 @@ func (ctr *DenunciaController) ReceberDenunciaTexto(c echo.Context) error {
     // 4. Retorna a denuncia criada com stts 201
     return c.JSON(http.StatusCreated, denuncia)
 
-    
+}
 
+func (ctr *DenunciaController) GetDenuncias(c echo.Context) error {
+    denuncias, err := ctr.svc.GetDenuncias(c.Request().Context())
+    if err != nil {
+        return c.JSON(
+        http.StatusInternalServerError,
+        map[string]string{"error": "falha ao buscar denuncias: " + err.Error()},
+        )
+    }
+
+    return c.JSON(http.StatusOK, denuncias)
 }

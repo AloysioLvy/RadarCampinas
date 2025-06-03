@@ -21,7 +21,7 @@ func Load() (*Config, error) {
 	// carrega .env em dev
 
 	_ = godotenv.Load("/Users/lourenco.diogo/Documents/GitHub/RadarCampinas/.env.local")
-
+	_ = godotenv.Load("/Users/soothsayer/Documents/GitHub/TccRadarCampinas/.env.local")
 	
 	cfg := &Config{
 		DBHost:     os.Getenv("DB_HOST"),

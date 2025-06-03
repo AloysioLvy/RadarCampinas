@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/models"
 	"gorm.io/gorm"
@@ -14,6 +15,7 @@ type DenunciaService interface {
 	// no banco de dados, retornando erro em caso de falha.
 	CreateDenuncia(ctx context.Context, d *models.Denuncia) error
 	ProcessarDenunciaTexto(ctx context.Context, req *models.DenunciaRequest) (*models.Denuncia, error)
+	GetDenuncias(ctx context.Context) ([]models.Denuncia, error)
 }
 
 // denunciaService é a implementação concreta de DenunciaService.
@@ -53,42 +55,40 @@ func (s *denunciaService) ProcessarDenunciaTexto(ctx context.Context, req *model
 		}
 	}()
 
-	// 1. Cria ou encontra o bairro com base nas coordenadas
-	bairro := models.Bairro{
-		Nome:      req.Nome,
-		Latitude:  req.Latitude,
-		Longitude: req.Longitude,
-	}
-
-	// Verifica se ja existe um bairro com essas coordenadas
-	result := tx.Where("latitude = ? AND longitude = ?", req.Latitude, req.Longitude).First(&bairro)
-	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-		tx.Rollback()
-		return nil, result.Error
-	}
-
-	// Se nao encontrou, cria um novo bairro
-	if result.Error == gorm.ErrRecordNotFound {
+	// Busca ou cria bairro
+	var bairro models.Bairro
+	err := tx.Where("latitude = ? AND longitude = ?", req.Latitude, req.Longitude).First(&bairro).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 1. Cria ou encontra o bairro com base nas coordenadas
+		bairro := models.Bairro{
+			Nome:       req.Nome,
+			Latitude:   req.Latitude,
+			Longitude:  req.Longitude,
+			PesoBairro: 0,
+		}
 		if err := tx.Create(&bairro).Error; err != nil {
 			tx.Rollback()
 			return nil, err
 		}
+	} else if err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
-	// 2 . Cria ou encontra o crime com base no tipo e peso
-	crime := models.Crime{
-		TipoDeCrime: req.TipoDeCrime,
-		PesoCrime:   req.PesoCrime,
-	}
-
-	// Verifica se ja existe um crime com esse tipo ??
-
-	// Se nao, cria novo crime
-	if result.Error == gorm.ErrRecordNotFound {
+	var crime models.Crime
+	err = tx.Where("tipo_de_crime = ? AND peso_crime = ?", req.TipoDeCrime, req.PesoCrime).First(&crime).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		crime = models.Crime{
+			TipoDeCrime: req.TipoDeCrime,
+			PesoCrime:   req.PesoCrime,
+		}
 		if err := tx.Create(&crime).Error; err != nil {
 			tx.Rollback()
 			return nil, err
 		}
+	} else if err != nil {
+		tx.Rollback()
+		return nil, err
 	}
 
 	// 3.Cria a denuncia relacionando bairro e crime
@@ -115,4 +115,16 @@ func (s *denunciaService) ProcessarDenunciaTexto(ctx context.Context, req *model
 	}
 
 	return &denuncia, nil
+}
+
+// GetDenuncias busca todas as denuncias com suas associações
+func (s *denunciaService) GetDenuncias(ctx context.Context) ([]models.Denuncia, error) {
+	var denuncias []models.Denuncia
+
+	err := s.db.WithContext(ctx).Preload("Bairro").Preload("Crime").Find(&denuncias).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return denuncias, nil
 }
