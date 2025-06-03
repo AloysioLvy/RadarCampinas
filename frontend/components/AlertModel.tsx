@@ -1,36 +1,26 @@
 "use client"
 
-import { X, AlertTriangle } from 'lucide-react'
-import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
-export function AlertModel({ onClose, className }: { onClose: () => void, className?: string }) {
+interface AlertModelProps {
+  onClose: () => void
+  onConfirm: () => void
+  onReject: () => void
+}
+
+export function AlertModel({ onClose, onConfirm, onReject }: AlertModelProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop with blur effect */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Alert container */}
-      <div className={cn("relative bg-gray-200 rounded-lg shadow-lg max-w-md w-full mx-4 p-6", className)}>
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 rounded-full bg-[#4d4dff] text-white p-1 hover:bg-[#3a3ad9] transition-colors"
-          aria-label="Fechar"
-        >
-          <X size={20} />
-        </button>
-
-        {/* Alert content */}
-        <div className="flex flex-col items-center text-center">
-          <div className="bg-white p-3 rounded-md mb-4">
-            <AlertTriangle size={40} className="text-[#4d4dff]" />
-          </div>
-
-          <p className="text-gray-800 text-sm">
-            Por favor, revise os dados que o assistente identificou. Sua confirmação ajuda a manter a precisão do sistema.
-          </p>
-        </div>
-      </div>
+    <div className="flex justify-center gap-3 mt-4 mb-4">
+      <Button
+        variant="outline"
+        onClick={onReject}
+        className="px-8 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 border-gray-300"
+      >
+        Não
+      </Button>
+      <Button onClick={onConfirm} className="px-8 py-2 bg-[#4d4dff] hover:bg-[#3a3ad9] text-white">
+        Sim
+      </Button>
     </div>
   )
 }

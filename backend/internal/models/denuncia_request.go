@@ -2,7 +2,7 @@ package models
 
 // JSON do front-end
 type DenunciaRequest struct {
-	Nome        string `json:"nome"`
+	Nome        string `json:"localizacao"`
 	Latitude    string `json:"latitude"`
 	Longitude   string `json:"longitude"`
 	TipoDeCrime string `json:"tipo_de_crime"`

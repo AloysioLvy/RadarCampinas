@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"fmt"
-	"net/http"
-
-	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/models"
-	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
-	"github.com/labstack/echo/v4"
+    "net/http"
+    "fmt"
+    "github.com/labstack/echo/v4"
+    "github.com/AloysioLvy/TccRadarCampinas/backend/internal/models"
+    "github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
 )
 
 // DenunciaController é responsável por agrupar as rotas e

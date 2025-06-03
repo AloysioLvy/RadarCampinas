@@ -1,12 +1,17 @@
-// components/ChatMessages.tsx
+"use client"
+
 import { AlertTriangle } from "lucide-react"
-import { Message } from "ai"
+import { AlertModel } from "./AlertModel"
 
 interface ChatMessagesProps {
-  messages: Message[]
+  messages: any[]
+  showAlert: boolean
+  onConfirm: () => void
+  onReject: () => void
+  onCloseAlert: () => void
 }
 
-export default function ChatMessages({ messages }: ChatMessagesProps) {
+export default function ChatMessages({ messages, showAlert, onConfirm, onReject, onCloseAlert }: ChatMessagesProps) {
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
@@ -19,18 +24,26 @@ export default function ChatMessages({ messages }: ChatMessagesProps) {
 
   return (
     <div className="space-y-4">
-      {messages.map((message) => (
-        <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-          <div
-            className={`max-w-[80%] rounded-lg px-4 py-2 ${
-              message.role === "user" ? "bg-[#4d4dff] text-white" : "bg-gray-200 text-gray-800"
-            }`}
-          >
-            {message.content.split('\n').map((line, index) => (
-              <p key={index}>{line}</p>
-            ))}
-            
+      {messages.map((message, index) => (
+        <div key={index}>
+          <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                message.role === "user" ? "bg-[#4d4dff] text-white" : "bg-gray-200 text-gray-800"
+              }`}
+            >
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            </div>
           </div>
+
+          {/* Show confirmation buttons after the last assistant message that contains summary */}
+          {message.role === "assistant" && index === messages.length - 1 && showAlert && (
+            <div className="flex justify-start mt-2">
+              <div className="max-w-[80%]">
+                <AlertModel onClose={onCloseAlert} onConfirm={onConfirm} onReject={onReject} />
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
