@@ -78,7 +78,6 @@ async function geocodeAddress(address: string) {
     if (response.data.length === 0) {
       return null;
     }
-    console.log(response.data)
     const { lat, lon } = response.data[0];
     const display_name = response.data[0].display_name;
     const neighborhood = display_name.split(",")
@@ -119,31 +118,30 @@ export async function POST(req: Request) {
     );
 
     const result = openaiResponse.data.choices[0].message.content;
-    console.log("Resposta OpenAI:", result);
 
     let finalData = null;
     
     try {
-      console.log("final data = " + finalData)
       finalData = JSON.parse(result);
     } catch {
-      console.log("entrou no catch")
+    
     }
 
     if (finalData && finalData.localizacao) {
-      const pesoCrime = calculateWeightCrime
+      const crime_weight = calculateWeightCrime
       (finalData.tipo_de_crime);
-      const coords = await geocodeAddress(finalData.localizacao);
+      const locationInfo = await geocodeAddress(finalData.localizacao);
       
 
-
       const payload = {
-        ...finalData,
-        peso_crime: pesoCrime,
-        latitude: coords?.latitude || null,
-        longitude: coords?.longitude || null,
-        localizacao: coords?.localizacao||null,
-      };
+        crimeType: finalData.tipo_de_crime,
+        crimeWeight: crime_weight,
+        latitude: locationInfo?.latitude || null,
+        longitude: locationInfo?.longitude || null,
+        location: locationInfo?.localizacao||null,
+        crimeData: finalData.data_crime
+      }
+    
       console.log("PAYLOAD"+JSON.stringify(payload))
       try {
         if(!process.env.BACKEND_ROUTE_URL){
