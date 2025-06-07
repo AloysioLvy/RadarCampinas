@@ -51,7 +51,7 @@ export default function ChatbotPage() {
       const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
 
-      if (botMessageContent.includes("Está correto")) {
+      if (botMessageContent.includes("Tipo de crime:")) {
         setBotMessage(botMessageContent)
         setShowAlert(true)
       }
