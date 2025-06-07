@@ -32,7 +32,7 @@ Pergunte: "Está correto? (responda sim ou não)"
 Se o usuário responder "não", reinicie o processo de coleta.
 `;
 
-const crimesHediondos = [
+const HeinousCrimes = [
       "latrocínio",
       "homicídio qualificado",
       "homicídio praticado por grupo de extermínio",
@@ -56,10 +56,10 @@ const crimesHediondos = [
       "tráfico internacional de armas",
       'Sequestro e extorsão qualificada'
 ];
-function calcularPesoCrime(tipoDeCrime:string):number {
-  const crimeNormalizado = tipoDeCrime.trim().toLowerCase();
-  const isHediondo = crimesHediondos.some(crime => crime.toLowerCase().includes(crimeNormalizado));
-  return isHediondo ? 9 : 3;
+function calculateWeightCrime(typeOfCrime:string):number {
+  const crimeNormalized = typeOfCrime.trim().toLowerCase();
+  const isHeinous = HeinousCrimes.some(crime => crime.toLowerCase().includes(crimeNormalized));
+  return isHeinous ? 9 : 3;
 }
 
 async function geocodeAddress(address: string) {
@@ -78,14 +78,15 @@ async function geocodeAddress(address: string) {
     if (response.data.length === 0) {
       return null;
     }
+    console.log(response.data)
     const { lat, lon } = response.data[0];
     const display_name = response.data[0].display_name;
     const neighborhood = display_name.split(",")
     return { 
-      latitude: lat, longitude: lon,  localizacao:neighborhood[2]};
+      latitude: lat, longitude: lon,  localizacao:neighborhood[1]};
       
   } catch (error) {
-    console.error("Erro na geocodificação:", error);
+    console.error("Geocoding error:", error);
     return null;
   }
 }
@@ -95,9 +96,9 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
     
     if (!process.env.OPENAI_API_KEY) {
-      console.error("API key não encontrada");
+      console.error("API key not found");
       return NextResponse.json(
-        { error: "Configuração da API OpenAI ausente" },
+        { error: "Missing OpenAI API configuration " },
         { status: 500 }
       );
     }
@@ -123,14 +124,15 @@ export async function POST(req: Request) {
     let finalData = null;
     
     try {
-      finalData = JSON.parse(result);
       console.log("final data = " + finalData)
+      finalData = JSON.parse(result);
     } catch {
       console.log("entrou no catch")
     }
 
     if (finalData && finalData.localizacao) {
-      const pesoCrime = calcularPesoCrime(finalData.tipo_de_crime);
+      const pesoCrime = calculateWeightCrime
+      (finalData.tipo_de_crime);
       const coords = await geocodeAddress(finalData.localizacao);
       
 
@@ -144,39 +146,42 @@ export async function POST(req: Request) {
       };
       console.log("PAYLOAD"+JSON.stringify(payload))
       try {
+        if(!process.env.BACKEND_ROUTE_URL){
+          console.error("BACKEND ROUTE URL not found");
+        }
         const backendResponse = await axios.post(
-          "http://localhost:1023/api/v1/denuncias/texto",
+          `${process.env.BACKEND_ROUTE_URL}`,
           payload
+        
         );
         
-        console.log("Resposta do backend:", backendResponse.data);
+        console.log("Backend response:", backendResponse.data);
       
         return NextResponse.json({
-          sucesso: true,
-          dados_enviados: payload,
-          resposta_backend: backendResponse.data,
+          sucess: true,
+          data_sent: payload,
+          backend_response: backendResponse.data,
         });
       
       } catch (backendError: any) {
-        console.error("Erro ao enviar para o backend:", backendError);
+        console.error("Error sending to backend:", backendError);
         return NextResponse.json(
-          { erro: "Falha ao enviar dados ao backend", detalhes: backendError.message },
+          { erro: "Failed to send data to backend", detalhes: backendError.message },
           { status: 500 }
         );
       }
       
     }
 
-    // Caso ainda não tenha confirmado (JSON não foi gerado)
-    return NextResponse.json({ resultado: result });
+    return NextResponse.json({ result: result });
   } catch (error: any) {
-    console.error("Erro ao chamar OpenAI:", error);
+    console.error("Error calling OpenAI:", error);
     if (error.response) {
       console.error("Status:", error.response.status);
       console.error("Data:", error.response.data);
     }
     return NextResponse.json(
-      { error: "Erro ao processar denúncia", detalhes: error.message },
+      { error: "Error processing report", detalhes: error.message },
       { status: 500 }
     );
   }

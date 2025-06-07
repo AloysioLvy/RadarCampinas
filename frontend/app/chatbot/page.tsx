@@ -48,7 +48,7 @@ export default function ChatbotPage() {
       })
       const data = await res.json()
 
-      const botMessage = { role: "assistant", content: data.resultado }
+      const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
 
       if (botMessageContent.includes("Está correto")) {
@@ -89,7 +89,7 @@ export default function ChatbotPage() {
       })
       const data = await res.json()
 
-      const botMessage = { role: "assistant", content: data.resultado }
+      const botMessage = { role: "assistant", content: data.result }
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
       console.error("Erro:", err)
@@ -114,7 +114,7 @@ export default function ChatbotPage() {
       })
       const data = await res.json()
 
-      const botMessage = { role: "assistant", content: data.resultado }
+      const botMessage = { role: "assistant", content: data.result }
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
       console.error("Erro:", err)
@@ -149,7 +149,7 @@ export default function ChatbotPage() {
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                   Localização da Ocorrência
                 </label>
-                <div className="flex">{/* Campo de localização se quiser usar depois */}</div>
+                <div className="flex">{/* Location field if you want to use it later */}</div>
               </div>
 
               <div className="border rounded-md p-4 h-[400px] overflow-y-auto mb-4 bg-gray-50">
