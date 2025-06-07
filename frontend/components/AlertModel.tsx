@@ -13,14 +13,15 @@ export function AlertModel({ onClose, onConfirm, onReject }: AlertModelProps) {
     <div className="flex justify-center gap-3 mt-4 mb-4">
       <Button
         variant="outline"
-        onClick={onReject}
-        className="px-8 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300 border-gray-300"
+        onClick={onConfirm}
+        className="px-8 py-2 bg-[#4d4dff] hover:bg-[#3a3ad9] text-white"
       >
-        Não
-      </Button>
-      <Button onClick={onConfirm} className="px-8 py-2 bg-[#4d4dff] hover:bg-[#3a3ad9] text-white">
         Sim
+      </Button>
+      <Button onClick={onReject} className="px-8 py-2 bg-gray-200 text-gray-700 hover:bg-gray-300">
+        Não
       </Button>
     </div>
   )
 }
+
