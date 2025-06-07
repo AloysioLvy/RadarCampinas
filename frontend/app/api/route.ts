@@ -63,11 +63,12 @@ function calculateWeightCrime(typeOfCrime:string):number {
 }
 
 async function geocodeAddress(address: string) {
-  try {
+  const correctAdderss = address.trim();
+  try { 
     const url = "https://nominatim.openstreetmap.org/search";
     const response = await axios.get(url, {
       params: {
-        q: address,
+        q: correctAdderss,
         format: "json",
         limit: 1,
       },
@@ -76,14 +77,18 @@ async function geocodeAddress(address: string) {
       },
     });
     if (response.data.length === 0) {
+
+
       return null;
     }
-    console.log(response.data)
     const { lat, lon } = response.data[0];
-    const display_name = response.data[0].display_name;
-    const neighborhood = display_name.split(",")
+    const displayName = response.data[0].display_name;
+    const neighborhoodName = displayName.split(",");
+    const cityName = neighborhoodName[2];
+   
     return { 
-      latitude: lat, longitude: lon,  localizacao:neighborhood[1]};
+      latitude: lat, longitude: lon,  neighborhoodName:neighborhoodName[1].trim(),
+    cityName: cityName.trim()};
       
   } catch (error) {
     console.error("Geocoding error:", error);
@@ -94,7 +99,6 @@ async function geocodeAddress(address: string) {
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
-    
     if (!process.env.OPENAI_API_KEY) {
       console.error("API key not found");
       return NextResponse.json(
@@ -118,32 +122,32 @@ export async function POST(req: Request) {
       }
     );
 
-    const result = openaiResponse.data.choices[0].message.content;
-    console.log("Resposta OpenAI:", result);
+    const result = openaiResponse.data.choices[0].message.content;    
+
+
 
     let finalData = null;
     
     try {
-      console.log("final data = " + finalData)
       finalData = JSON.parse(result);
     } catch {
-      console.log("entrou no catch")
+    
     }
 
-    if (finalData && finalData.localizacao) {
-      const pesoCrime = calculateWeightCrime
-      (finalData.tipo_de_crime);
-      const coords = await geocodeAddress(finalData.localizacao);
-      
+    if (finalData && finalData.localizacao != null) {
+      const crime_weight = calculateWeightCrime(finalData.tipo_de_crime);
+      const locationInfo = await geocodeAddress(finalData.localizacao);
 
 
       const payload = {
-        ...finalData,
-        peso_crime: pesoCrime,
-        latitude: coords?.latitude || null,
-        longitude: coords?.longitude || null,
-        localizacao: coords?.localizacao||null,
-      };
+        crimeType: finalData.tipo_de_crime,
+        crimeWeight: crime_weight,
+        latitude: locationInfo?.latitude || null,
+        longitude: locationInfo?.longitude || null,
+        location: locationInfo?.neighborhoodName||null,
+        crimeData: finalData.data_crime
+      }
+    
       console.log("PAYLOAD"+JSON.stringify(payload))
       try {
         if(!process.env.BACKEND_ROUTE_URL){
@@ -171,9 +175,19 @@ export async function POST(req: Request) {
         );
       }
       
+    } 
+      const locationMatch = result.match(/Localização:\s*(.*)/i);
+    if (locationMatch && locationMatch[1].trim()){
+          const locationLine = locationMatch[0]; 
+          const locationName = String(locationMatch [1]).trim();
+          const locationInfo = await geocodeAddress(locationName);  
+          const enrichedLocation = `Região: ${locationInfo?.neighborhoodName}, ${locationInfo?.cityName}`;
+          const enrichedResult = result.replace(locationLine, enrichedLocation);
+          return NextResponse.json({result: enrichedResult,
+    locationInfo, });
     }
-
     return NextResponse.json({ result: result });
+
   } catch (error: any) {
     console.error("Error calling OpenAI:", error);
     if (error.response) {
