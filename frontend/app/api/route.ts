@@ -99,6 +99,7 @@ async function geocodeAddress(address: string) {
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
+    console.log("User: ",messages)
     if (!process.env.OPENAI_API_KEY) {
       console.error("API key not found");
       return NextResponse.json(
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
     } catch {
     
     }
-
+    
     if (finalData && finalData.localizacao != null) {
       const crime_weight = calculateWeightCrime(finalData.tipo_de_crime);
       const locationInfo = await geocodeAddress(finalData.localizacao);
