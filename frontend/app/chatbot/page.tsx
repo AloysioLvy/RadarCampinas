@@ -83,6 +83,7 @@ const thankYouMessages = [
         botMessageContent.includes("data da denúncia")&& botMessageContent.includes("localização"))) {
         setBotMessage(botMessageContent)
         setShowAlert(true)
+
       }
 
 
