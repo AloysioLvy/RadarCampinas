@@ -80,8 +80,8 @@ const thankYouMessages = [
       const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
     
-      if (botMessageContent.includes("Tipo de crime:")&& (botMessageContent.includes("tipo de crime")||
-        botMessageContent.includes("data da denúncia")|| botMessageContent.includes("localização"))) {
+      if (botMessageContent.includes("Tipo de crime:")|| (botMessageContent.includes("tipo de crime")&&
+        botMessageContent.includes("data da denúncia")&& botMessageContent.includes("localização"))) {
         setBotMessage(botMessageContent)
         setShowAlert(true)
       }
