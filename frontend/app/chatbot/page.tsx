@@ -79,16 +79,13 @@ const thankYouMessages = [
 
       const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
-      if (botMessageContent.includes("Tipo de crime:") ||botMessageContent.includes("Para confirmar") ||
-        (
-          botMessageContent.includes("tipo de crime") &&
-          botMessageContent.includes("data da denúncia") &&
-          botMessageContent.includes("localização")
-        )
-      ) {
-        setBotMessage(botMessageContent);
-        setShowAlert(true);
+     if (botMessageContent.includes("Tipo de crime:")|| (botMessageContent.includes("tipo de crime")&&
+        botMessageContent.includes("data da denúncia")&& botMessageContent.includes("localização"))) {
+        setBotMessage(botMessageContent)
+        setShowAlert(true)
+
       }
+
 
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
