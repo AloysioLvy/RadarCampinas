@@ -148,7 +148,6 @@ export async function POST(req: Request) {
         crimeData: finalData.data_crime
       }
     
-      console.log("PAYLOAD"+JSON.stringify(payload))
       try {
         if(!process.env.BACKEND_ROUTE_URL){
           console.error("BACKEND ROUTE URL not found");
@@ -159,7 +158,6 @@ export async function POST(req: Request) {
         
         );
         
-        console.log("Backend response:", backendResponse.data);
       
         return NextResponse.json({
           sucess: true,

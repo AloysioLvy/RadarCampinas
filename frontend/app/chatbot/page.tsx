@@ -21,6 +21,35 @@ export default function ChatbotPage() {
   const [showAlert, setShowAlert] = useState(false)
   const [botMessage, setBotMessage] = useState("")
   
+  const correctionMessages  = [
+  "Tudo bem, vamos corrigir as informações.",
+  "Claro, vamos ajustar isso juntos.",
+  "Sem problemas, me diga o que precisa ser alterado.",
+  "Entendi! Vamos lá, estou ouvindo.",
+  "Desculpe se houve algum erro. Pode me dizer o que está incorreto?",
+  "Certo! Vamos corrigir os dados.",
+  "Ok, obrigado por avisar. Vamos fazer as correções.",
+  "Combinado! Me informe o que precisa ser atualizado.",
+  "Tranquilo! Vamos ajustar as informações agora.",
+  "Vamos lá! O que está incorreto?",
+  "Fico à disposição para corrigir. Pode continuar.",
+  "Tudo certo. Diga o que precisa ser modificado.",
+];
+const thankYouMessages = [
+  "Muito obrigado pela colaboração 😊",
+  "Agradeço muito pela sua ajuda!",
+  "Obrigado por confiar em nós 🙏",
+  "Sua colaboração é muito importante 💙",
+  "Agradecemos pelo envio das informações!",
+  "Obrigado! Sua denúncia ajuda a tornar o lugar mais seguro.",
+  "Gratidão pela sua contribuição!",
+  "Obrigado por fazer a sua parte 💪",
+  "Valeu pela ajuda! Seguimos juntos.",
+  "Obrigado por dedicar seu tempo para relatar isso 🙌",
+  "Sua colaboração foi registrada com sucesso. Muito obrigado!",
+  "Obrigado pela confiança. Estamos aqui para ajudar!"
+];
+
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,8 +79,9 @@ export default function ChatbotPage() {
 
       const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
-
-      if (botMessageContent.includes("Tipo de crime:")) {
+    
+      if (botMessageContent.includes("Tipo de crime:")|| (botMessageContent.includes("tipo de crime")&&
+        botMessageContent.includes("data da denúncia")&& botMessageContent.includes("localização"))) {
         setBotMessage(botMessageContent)
         setShowAlert(true)
       }
@@ -67,29 +97,24 @@ export default function ChatbotPage() {
 
   const handleConfirm = async () => {
     // Add user confirmation message
+    let messageIndex =  Math.floor(Math.random() * thankYouMessages.length);
     const confirmMessage = { role: "user", content: "Sim, confirmo que todas as informações estão corretas." }
-    const confirmMessageContent = confirmMessage.content
+    const chatMessage = { role: "assistant", content: thankYouMessages[messageIndex]}
+
     setMessages((prev) => [...prev, confirmMessage])
     setShowAlert(false)
     setIsLoading(true)
 
-    const userMessage = { role: "user", content: input }
-    const newMessages = [...messages, userMessage]
-    const newMessagesContent = [...messages, confirmMessage]
-
-
-    
-    
-
+    const confirmMessagesContent = [...messages, confirmMessage]
     try {
       const res = await fetch("/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: newMessagesContent }),
+        body: JSON.stringify({ messages: confirmMessagesContent }),
       })
       const data = await res.json()
 
-      const botMessage = { role: "assistant", content: data.result }
+      const botMessage = chatMessage;
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
       console.error("Erro:", err)
@@ -100,21 +125,26 @@ export default function ChatbotPage() {
 
   const handleReject = async () => {
     // Add user rejection message
+    let messageIndex = Math.floor(Math.random() * correctionMessages.length);
     const rejectMessage = { role: "user", content: "Não, preciso corrigir algumas informações." }
+    const chatMessage = { role: "assistant", content: correctionMessages[messageIndex]}
+
     setMessages((prev) => [...prev, rejectMessage])
     setShowAlert(false)
     setIsLoading(true)
+    const rejectMessageContent = [...messages, rejectMessage]
 
     try {
       // Send rejection to API
+      
       const res = await fetch("/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia: "Não, preciso corrigir algumas informações." }),
+        body: JSON.stringify({ denuncia: rejectMessageContent}),
       })
       const data = await res.json()
 
-      const botMessage = { role: "assistant", content: data.result }
+      const botMessage = chatMessage
       setMessages((prev) => [...prev, botMessage])
     } catch (err) {
       console.error("Erro:", err)
