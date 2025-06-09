@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
@@ -14,12 +14,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 
 export default function ChatbotPage() {
-  const [location, setLocation] = useState("")
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showAlert, setShowAlert] = useState(false)
   const [botMessage, setBotMessage] = useState("")
+  const [blocked, setBlocked] = useState(false);
+
   
   const correctionMessages  = [
   "Tudo bem, vamos corrigir as informações.",
@@ -49,9 +50,38 @@ const thankYouMessages = [
   "Sua colaboração foi registrada com sucesso. Muito obrigado!",
   "Obrigado pela confiança. Estamos aqui para ajudar!"
 ];
-
-
-
+ const botBlockMessage = {
+              role: "assistant",
+              content:
+                "Muito obrigado pela colaboração 🕵️‍♂️                                                                                                Você atingiu o limite de envios para hoje 🚫 "
+                +"                                                                                                Por favor, tente novamente em 24 horas."
+            };
+  
+  useEffect(() => {
+  const blockTime = localStorage.getItem("blockTime");
+  if (blockTime) {
+    const now = new Date().getTime();
+    const diff = now - parseInt(blockTime, 10);
+    if (diff < 24 * 60 * 60 * 1000) {
+      setBlocked(true);
+    } else {
+      localStorage.removeItem("blockTime");
+      setBlocked(false);
+    }
+  }
+}, []);
+    useEffect(() => {
+  if (blocked === true) {
+    setMessages((prev) => {
+      const exists = prev.some(msg => msg.content === botBlockMessage.content); 
+      if (!exists) {
+        return [...prev, botBlockMessage];
+      }
+      return prev;
+    });
+  }
+}, [blocked, botBlockMessage]);
+ 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }
@@ -59,7 +89,9 @@ const thankYouMessages = [
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-
+    if(input.length > 300){
+      return
+    }
   
 
     const userMessage = { role: "user", content: input }
@@ -76,7 +108,13 @@ const thankYouMessages = [
         body: JSON.stringify({ messages: newMessages }),
       })
       const data = await res.json()
-
+      if (data.error) {
+          
+            setBlocked(true);
+            setMessages((prev) => [...prev, botBlockMessage]);
+            localStorage.setItem("blockTime", new Date().getTime().toString());
+            return;
+                    }
       const botMessage = { role: "assistant", content: data.result }
       const botMessageContent = botMessage.content
      if (botMessageContent.includes("Tipo de crime:")|| (botMessageContent.includes("tipo de crime")&&
@@ -157,7 +195,7 @@ const thankYouMessages = [
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-
+      {blocked  }
       <main className="flex-1 container mx-auto p-4">
         <div className="max-w-3xl mx-auto">
           <div className="mb-4">
@@ -194,7 +232,7 @@ const thankYouMessages = [
               </div>
             </CardContent>
             <CardFooter>
-              <ChatInput input={input} onChange={handleInputChange} onSubmit={handleSubmit} isLoading={isLoading} />
+              <ChatInput input={input} onChange={handleInputChange} onSubmit={handleSubmit} isLoading={isLoading} disabled={blocked} />
             </CardFooter>
           </Card>
 

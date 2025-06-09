@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { checkRateLimit, rateLimit } from "./rateLimting";
 
 
 const SYSTEM_PROMPT = `
@@ -95,9 +96,16 @@ async function geocodeAddress(address: string) {
     return null;
   }
 }
-
+  
 export async function POST(req: Request) {
+    const rate = await checkRateLimit(req);
+    if (rate instanceof NextResponse) {
+          return NextResponse.json(
+        { error: "too many request " },
+        { status: 429 }); 
+}
   try {
+    
     const { messages } = await req.json();
     if (!process.env.OPENAI_API_KEY) {
       console.error("API key not found");
