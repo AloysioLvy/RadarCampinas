@@ -89,7 +89,9 @@ const thankYouMessages = [
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-
+    if(input.length > 300){
+      return
+    }
   
 
     const userMessage = { role: "user", content: input }
