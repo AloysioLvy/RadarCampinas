@@ -4,4 +4,4 @@ A segurança urbana é uma preocupação em Campinas, onde a falta de informaç�
 -Tela inicial
 ![RadarCampinasmapa](https://github.com/user-attachments/assets/5b762e73-a7b6-46fb-a44f-f96df4fbe90a)
 -Chat denúncia 
-![RadarCampinasmapa](https://github.com/user-attachments/assets/234adf12-ca5c-41aa-8eaa-857ba8064d07)
+![image](https://github.com/user-attachments/assets/9cdaa70b-8730-445a-9aef-791f059af30e)
