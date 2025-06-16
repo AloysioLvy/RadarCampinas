@@ -14,44 +14,44 @@ import (
 )
 
 func main() {
-	// Carregar as configs
+	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Falha ao carregar configs: %v", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Conectar ao banco
+	// Connect to database
 	db, err := database.Connect(cfg)
 	if err != nil {
-		log.Fatalf("Falha ao conectar banco de dados: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Auto-migrate -> a estudar (provisorio)
-	if err := db.AutoMigrate(&models.Denuncia{}, &models.Crime{}, &models.Bairro{}); err != nil {
-		log.Fatalf("migration failed: %v", err)
+	// Auto-migrate database schemas
+	if err := db.AutoMigrate(&models.Report{}, &models.Crime{}, &models.Neighborhood{}); err != nil {
+		log.Fatalf("Migration failed: %v", err)
 	}
 
-	// 4. Instancia serviços
+	// Initialize services
 	// crimeSvc := services.NewCrimeService(db)
-	denunciaSvc := services.NewDenunciaService(db)
-	// bairroSvc := services.NewBairroService(db)
+	reportSvc := services.NewReportService(db)
+	// neighborhoodSvc := services.NewNeighborhoodService(db)
 
-	// 5. Cria controllers
+	// Create controllers
 	//crimeCtrl := controllers.NewCrimeController(crimeSvc)
-	denunciaCtrl := controllers.NewDenunciaController(denunciaSvc)
-	//bairroCtrl := controllers.NewBairroController(bairroSvc)
+	reportCtrl := controllers.NewReportController(reportSvc)
+	//neighborhoodCtrl := controllers.NewNeighborhoodController(neighborhoodSvc)
 
-	// 6. Inicializa Echo
+	// Initialize Echo
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// 7. Registra rotas
+	// Register routes
 	api := e.Group("/api/v1")
 	// crimeCtrl.Register(api)
-	// bairroCtrl.Register(api)
-	denunciaCtrl.Register(api)
+	// neighborhoodCtrl.Register(api)
+	reportCtrl.Register(api)
 
-	// 8. Roda Servidor
+	// Start server
 	e.Logger.Fatal(e.Start(":8080"))
 }

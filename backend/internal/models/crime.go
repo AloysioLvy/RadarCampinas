@@ -2,11 +2,11 @@ package models
 
 import "time"
 
-// Crime representa o tipo de crime e seu peso
+// Crime represents the type of crime and its weight
 type Crime struct {
-	CrimeID     uint      `json:"id" gorm:"primaryKey"`
-	TipoDeCrime string    `json:"tipo_de_crime" gorm:"size:255;not null"`
-	PesoCrime   int       `json:"peso_crime" gorm:"not null"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	CrimeID    uint      `json:"crime_id" gorm:"primaryKey"`
+	CrimeName  string    `json:"crime_name" gorm:"size:255;not null"`
+	CrimeWeight int      `json:"crime_weight" gorm:"not null"`
+	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
