@@ -1,36 +1,36 @@
 create table "Crimes" (
-	"id_crime" bigint not null,
-	"nome_crime" varchar(255) null,
-	"peso_crime" smallint null
+	"crime_id" bigint not null,
+	"crime_name" varchar(255) null,
+	"crime_weight" smallint null
 );
 
 alter table
-	"Crimes" add primary key("id_crime");
+	"Crimes" add primary key("crime_id");
 
 
-create table "Denuncia"(
-	"id_denuncia" bigint not null,
-	"id_crime" bigint not null,
-	"id_bairro" bigint not null,
-	"data" timestamp(0) without time zone not null
+create table "Reports"(
+	"report_id" bigint not null,
+	"crime_id" bigint not null,
+	"neighborhood_id" bigint not null,
+	"report_date" timestamp(0) without time zone not null
 );
 alter table 
-	"Denuncia" add primary key("id_denuncia");
+	"Reports" add primary key("report_id");
 
-create table "Bairros"(
-	"id_bairro" bigint not null,
+create table "Neighborhoods"(
+	"neighborhood_id" bigint not null,
 	"latitude" varchar(255) not null,
 	"longitude" varchar(255) not null,
-	"nome" varchar(255) not null,
-	"peso_bairro" bigint not null
+	"name" varchar(255) not null,
+	"neighborhood_weight" bigint not null
 );
 alter table 
-	"Bairros" add primary key("id_bairro");
+	"Neighborhoods" add primary key("neighborhood_id");
 
 alter table 
-	"Denuncia" add constraint "id_crime_foreign" foreign key("id_crime") references "Crimes"("id_crime");
+	"Reports" add constraint "crime_foreign_id" foreign key("crime_id") references "Crimes"("crime_id");
 
 alter table 
-	"Denuncia" add constraint "id_bairro_foreign" foreign key("id_bairro") references "Bairros"("id_bairro");
+	"Reports" add constraint "neighborhood_foreign_id" foreign key("neighborhood_id") references "Neighborhoods"("neighborhood_id");
 
 
