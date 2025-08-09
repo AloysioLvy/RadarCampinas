@@ -20,8 +20,15 @@ export default function ChatbotPage() {
   const [showAlert, setShowAlert] = useState(false)
   const [botMessage, setBotMessage] = useState("")
   const [blocked, setBlocked] = useState(false);
+  const [emptyConversation, setEmptyConversation] = useState(true);
 
-  
+  const initialMessage = {
+              role: "assistant",
+              content:
+                "Olá! Eu sou o assistente do RadarCampinas. Qual ocorrência você gostaria de reportar?"
+            };
+
+       
   const correctionMessages  = [
   "Tudo bem, vamos corrigir as informações.",
   "Claro, vamos ajustar isso juntos.",
@@ -190,6 +197,14 @@ const thankYouMessages = [
     }
   }
 
+  useEffect(() => {
+  if (emptyConversation) {
+    setMessages([initialMessage]);
+    setEmptyConversation(false);
+  }
+}, [emptyConversation]);
+
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -216,7 +231,7 @@ const thankYouMessages = [
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                   Localização da Ocorrência
                 </label>
-                <div className="flex">{/* Location field if you want to use it later */}</div>
+                <div className="flex">{}</div>
               </div>
 
               <div className="border rounded-md p-4 h-[400px] overflow-y-auto mb-4 bg-gray-50">
