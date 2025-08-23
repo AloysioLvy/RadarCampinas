@@ -18,7 +18,7 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	// carrega .env em dev
+	// reloaded .env in dev
 
 	_ = godotenv.Load("../.env.local")
 
