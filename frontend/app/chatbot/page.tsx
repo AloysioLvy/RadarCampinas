@@ -23,6 +23,7 @@ export default function ChatbotPage() {
   const [emptyConversation, setEmptyConversation] = useState(true);
 
   const initialMessage = {
+
     role: "assistant",
     content:
       "Olá! Eu sou o assistente do RadarCampinas. Qual ocorrência você gostaria de reportar?"
@@ -33,6 +34,7 @@ export default function ChatbotPage() {
    useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+
     }
   }, [messages])
 
@@ -104,9 +106,11 @@ export default function ChatbotPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
+
     if (input.length > 300) {
       return
     }
+
 
 
     const userMessage = { role: "user", content: input }
@@ -222,6 +226,7 @@ export default function ChatbotPage() {
   }, [emptyConversation]);
 
 
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -248,7 +253,9 @@ export default function ChatbotPage() {
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                   Localização da Ocorrência
                 </label>
+
                 <div className="flex">{ }</div>
+
               </div>
 
               <div className="border rounded-md p-4 mb-4 bg-gray-50">
