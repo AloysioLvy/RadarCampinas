@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
@@ -23,72 +23,82 @@ export default function ChatbotPage() {
   const [emptyConversation, setEmptyConversation] = useState(true);
 
   const initialMessage = {
-              role: "assistant",
-              content:
-                "Olá! Eu sou o assistente do RadarCampinas. Qual ocorrência você gostaria de reportar?"
-            };
 
-       
-  const correctionMessages  = [
-  "Tudo bem, vamos corrigir as informações.",
-  "Claro, vamos ajustar isso juntos.",
-  "Sem problemas, me diga o que precisa ser alterado.",
-  "Entendi! Vamos lá, estou ouvindo.",
-  "Desculpe se houve algum erro. Pode me dizer o que está incorreto?",
-  "Certo! Vamos corrigir os dados.",
-  "Ok, obrigado por avisar. Vamos fazer as correções.",
-  "Combinado! Me informe o que precisa ser atualizado.",
-  "Tranquilo! Vamos ajustar as informações agora.",
-  "Vamos lá! O que está incorreto?",
-  "Fico à disposição para corrigir. Pode continuar.",
-  "Tudo certo. Diga o que precisa ser modificado.",
-];
-const thankYouMessages = [
-  "Muito obrigado pela colaboração 😊",
-  "Agradeço muito pela sua ajuda!",
-  "Obrigado por confiar em nós 🙏",
-  "Sua colaboração é muito importante 💙",
-  "Agradecemos pelo envio das informações!",
-  "Obrigado! Sua denúncia ajuda a tornar o lugar mais seguro.",
-  "Gratidão pela sua contribuição!",
-  "Obrigado por fazer a sua parte 💪",
-  "Valeu pela ajuda! Seguimos juntos.",
-  "Obrigado por dedicar seu tempo para relatar isso 🙌",
-  "Sua colaboração foi registrada com sucesso. Muito obrigado!",
-  "Obrigado pela confiança. Estamos aqui para ajudar!"
-];
- const botBlockMessage = {
-              role: "assistant",
-              content:
-                "Muito obrigado pela colaboração 🕵️‍♂️                                                                                                Você atingiu o limite de envios para hoje 🚫 "
-                +"                                                                                                Por favor, tente novamente em 24 horas."
-            };
-  
-  useEffect(() => {
-  const blockTime = localStorage.getItem("blockTime");
-  if (blockTime) {
-    const now = new Date().getTime();
-    const diff = now - parseInt(blockTime, 10);
-    if (diff < 24 * 60 * 60 * 1000) {
-      setBlocked(true);
-    } else {
-      localStorage.removeItem("blockTime");
-      setBlocked(false);
+    role: "assistant",
+    content:
+      "Olá! Eu sou o assistente do RadarCampinas. Qual ocorrência você gostaria de reportar?"
+  };
+
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+
+   useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+
     }
-  }
-}, []);
-    useEffect(() => {
-  if (blocked === true) {
-    setMessages((prev) => {
-      const exists = prev.some(msg => msg.content === botBlockMessage.content); 
-      if (!exists) {
-        return [...prev, botBlockMessage];
+  }, [messages])
+
+
+  const correctionMessages = [
+    "Tudo bem, vamos corrigir as informações.",
+    "Claro, vamos ajustar isso juntos.",
+    "Sem problemas, me diga o que precisa ser alterado.",
+    "Entendi! Vamos lá, estou ouvindo.",
+    "Desculpe se houve algum erro. Pode me dizer o que está incorreto?",
+    "Certo! Vamos corrigir os dados.",
+    "Ok, obrigado por avisar. Vamos fazer as correções.",
+    "Combinado! Me informe o que precisa ser atualizado.",
+    "Tranquilo! Vamos ajustar as informações agora.",
+    "Vamos lá! O que está incorreto?",
+    "Fico à disposição para corrigir. Pode continuar.",
+    "Tudo certo. Diga o que precisa ser modificado.",
+  ];
+  const thankYouMessages = [
+    "Muito obrigado pela colaboração 😊",
+    "Agradeço muito pela sua ajuda!",
+    "Obrigado por confiar em nós 🙏",
+    "Sua colaboração é muito importante 💙",
+    "Agradecemos pelo envio das informações!",
+    "Obrigado! Sua denúncia ajuda a tornar o lugar mais seguro.",
+    "Gratidão pela sua contribuição!",
+    "Obrigado por fazer a sua parte 💪",
+    "Valeu pela ajuda! Seguimos juntos.",
+    "Obrigado por dedicar seu tempo para relatar isso 🙌",
+    "Sua colaboração foi registrada com sucesso. Muito obrigado!",
+    "Obrigado pela confiança. Estamos aqui para ajudar!"
+  ];
+  const botBlockMessage = {
+    role: "assistant",
+    content:
+      "Muito obrigado pela colaboração 🕵️‍♂️                                                                                                Você atingiu o limite de envios para hoje 🚫 "
+      + "                                                                                                Por favor, tente novamente em 24 horas."
+  };
+
+  useEffect(() => {
+    const blockTime = localStorage.getItem("blockTime");
+    if (blockTime) {
+      const now = new Date().getTime();
+      const diff = now - parseInt(blockTime, 10);
+      if (diff < 24 * 60 * 60 * 1000) {
+        setBlocked(true);
+      } else {
+        localStorage.removeItem("blockTime");
+        setBlocked(false);
       }
-      return prev;
-    });
-  }
-}, [blocked, botBlockMessage]);
- 
+    }
+  }, []);
+  useEffect(() => {
+    if (blocked === true) {
+      setMessages((prev) => {
+        const exists = prev.some(msg => msg.content === botBlockMessage.content);
+        if (!exists) {
+          return [...prev, botBlockMessage];
+        }
+        return prev;
+      });
+    }
+  }, [blocked, botBlockMessage]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
   }
@@ -96,10 +106,12 @@ const thankYouMessages = [
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-    if(input.length > 300){
+
+    if (input.length > 300) {
       return
     }
-  
+
+
 
     const userMessage = { role: "user", content: input }
     const newMessages = [...messages, userMessage]
@@ -116,16 +128,20 @@ const thankYouMessages = [
       })
       const data = await res.json()
       if (data.error) {
-          
-            setBlocked(true);
-            setMessages((prev) => [...prev, botBlockMessage]);
-            localStorage.setItem("blockTime", new Date().getTime().toString());
-            return;
-                    }
-      const botMessage = { role: "assistant", content: data.result }
+
+        setBlocked(true);
+        setMessages((prev) => [...prev, botBlockMessage]);
+        localStorage.setItem("blockTime", new Date().getTime().toString());
+        return;
+      }
+
+      const processedContent = data.result.replace(/localização/gi, "rua");
+      const botMessage = { role: "assistant", content: processedContent };
       const botMessageContent = botMessage.content
-     if (botMessageContent.includes("Tipo de crime:")|| (botMessageContent.includes("tipo de crime")&&
-        botMessageContent.includes("data da denúncia")&& botMessageContent.includes("localização"))) {
+
+
+      if (botMessageContent.includes("Tipo de crime:") || (botMessageContent.includes("tipo de crime") &&
+        botMessageContent.includes("data da denúncia") && botMessageContent.includes("localização"))) {
         setBotMessage(botMessageContent)
         setShowAlert(true)
 
@@ -143,13 +159,14 @@ const thankYouMessages = [
 
   const handleConfirm = async () => {
     // Add user confirmation message
-    let messageIndex =  Math.floor(Math.random() * thankYouMessages.length);
+    let messageIndex = Math.floor(Math.random() * thankYouMessages.length);
     const confirmMessage = { role: "user", content: "Sim, confirmo que todas as informações estão corretas." }
-    const chatMessage = { role: "assistant", content: thankYouMessages[messageIndex]}
+    const chatMessage = { role: "assistant", content: thankYouMessages[messageIndex] }
 
     setMessages((prev) => [...prev, confirmMessage])
     setShowAlert(false)
     setIsLoading(true)
+
 
     const confirmMessagesContent = [...messages, confirmMessage]
     try {
@@ -157,7 +174,9 @@ const thankYouMessages = [
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: confirmMessagesContent }),
-      })
+
+      }
+      )
       const data = await res.json()
 
       const botMessage = chatMessage;
@@ -173,7 +192,7 @@ const thankYouMessages = [
     // Add user rejection message
     let messageIndex = Math.floor(Math.random() * correctionMessages.length);
     const rejectMessage = { role: "user", content: "Não, preciso corrigir algumas informações." }
-    const chatMessage = { role: "assistant", content: correctionMessages[messageIndex]}
+    const chatMessage = { role: "assistant", content: correctionMessages[messageIndex] }
 
     setMessages((prev) => [...prev, rejectMessage])
     setShowAlert(false)
@@ -182,11 +201,11 @@ const thankYouMessages = [
 
     try {
       // Send rejection to API
-      
+
       const res = await fetch("/api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia: rejectMessageContent}),
+        body: JSON.stringify({ denuncia: rejectMessageContent }),
       })
       const data = await res.json()
 
@@ -200,17 +219,18 @@ const thankYouMessages = [
   }
 
   useEffect(() => {
-  if (emptyConversation) {
-    setMessages([initialMessage]);
-    setEmptyConversation(false);
-  }
-}, [emptyConversation]);
+    if (emptyConversation) {
+      setMessages([initialMessage]);
+      setEmptyConversation(false);
+    }
+  }, [emptyConversation]);
+
 
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      {blocked  }
+      {blocked}
       <main className="flex-1 container mx-auto p-4">
         <div className="max-w-3xl mx-auto">
           <div className="mb-4">
@@ -233,10 +253,12 @@ const thankYouMessages = [
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
                   Localização da Ocorrência
                 </label>
-                <div className="flex">{}</div>
+
+                <div className="flex">{ }</div>
+
               </div>
 
-              <div className="border rounded-md p-4 h-[400px] overflow-y-auto mb-4 bg-gray-50">
+              <div className="border rounded-md p-4 mb-4 bg-gray-50">
                 <ChatMessages
                   messages={messages}
                   showAlert={showAlert}

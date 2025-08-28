@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { AlertTriangle } from "lucide-react"
 import { AlertModel } from "./AlertModel"
 
@@ -11,7 +12,22 @@ interface ChatMessagesProps {
   onCloseAlert: () => void
 }
 
-export default function ChatMessages({ messages, showAlert, onConfirm, onReject, onCloseAlert }: ChatMessagesProps) {
+export default function ChatMessages({
+  messages,
+  showAlert,
+  onConfirm,
+  onReject,
+  onCloseAlert
+}: ChatMessagesProps) {
+  const scrollableRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = scrollableRef.current
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+  }, [messages])
+
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
@@ -23,7 +39,10 @@ export default function ChatMessages({ messages, showAlert, onConfirm, onReject,
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      ref={scrollableRef}
+      className="space-y-4 h-[400px] overflow-y-auto pr-2" 
+    >
       {messages.map((message, index) => (
         <div key={index}>
           <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -36,7 +55,6 @@ export default function ChatMessages({ messages, showAlert, onConfirm, onReject,
             </div>
           </div>
 
-          {/* Show confirmation buttons after the last assistant message that contains summary */}
           {message.role === "assistant" && index === messages.length - 1 && showAlert && (
             <div className="flex justify-start mt-2">
               <div className="max-w-[80%]">
