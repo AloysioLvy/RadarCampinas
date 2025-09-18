@@ -2,14 +2,14 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/labstack/echo/v4"
 	"database/sql"
 	"log"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v4"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
 )

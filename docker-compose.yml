@@ -3,20 +3,20 @@ version: '3.8'
 services:
   api:
     build:
-      context: ./backend
+      context: ./
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     depends_on:
       - db
     environment:
-      # Conexão com o PostgreSQL
-      DB_HOST: aws-0-sa-east-1.pooler-supabase.com
-      DB_PORT: "6543"
-      DB_USER: postgnes.woqronzdmitvilgduke
-      DB_PASSWORD: bancoteste123
-      DB_NAME: postigres
-      DB_SSLMODE: require DB
+      # Conexão com o PostgreSQL local (container db)
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: seu_usuario
+      DB_PASSWORD: sua_senha
+      DB_NAME: seu_banco
+      DB_SSLMODE: disable
       DB_TIMEZONE: UTC
     restart: unless-stopped
 

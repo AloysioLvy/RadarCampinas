@@ -47,7 +47,6 @@ func main() {
 	kbController := controllers.NewKnowledgeBaseController(
 		"postgres://user:pass@localhost:5432/source_db?sslmode=disable",
 		"postgres://user:pass@localhost:5433/radar_campinas?sslmode=disable")
-	
 
 	// Initialize Echo
 	e := echo.New()
@@ -60,7 +59,7 @@ func main() {
 	// neighborhoodCtrl.Register(api)
 	reportCtrl.Register(api)
 	kbController.Register(api)
-	
+
 	// Start server
 	e.Logger.Fatal(e.Start(":8080"))
 
@@ -77,7 +76,7 @@ func main() {
 	}
 	defer targetDB.Close()
 
-	config := &KnowledgeBaseConfig{
+	config := &services.KnowledgeBaseConfig{
 		SourceDB:       sourceDB,
 		TargetDB:       targetDB,
 		CellResolution: 500, // 500 metros
@@ -86,7 +85,7 @@ func main() {
 		EndDate:        time.Now(),
 	}
 
-	generator := NewKnowledgeBaseGenerator(config)
+	generator := services.NewKnowledgeBaseGenerator(config)
 
 	ctx := context.Background()
 	if err := generator.GenerateKnowledgeBase(ctx); err != nil {
