@@ -100,14 +100,13 @@ func (kg *KnowledgeBaseGenerator) mapReportToIncident(report Report) (map[string
 		return nil, fmt.Errorf("invalid longitude: %v", err)
 	}
 
-	
-	// bbox 
+	// bbox
 	if !kg.isWithinCampinas(lat, lon) {
 		return nil, fmt.Errorf("coordinates outside Campinas bounds")
 	}
 
 	// Converter data string para timestamp
-	// Convert Data 
+	// Convert Data
 	reportTime, err := time.Parse("2006-01-02", report.ReportDate)
 	if err != nil {
 		// Tentar outros formatos comuns
