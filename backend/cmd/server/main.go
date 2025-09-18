@@ -44,6 +44,10 @@ func main() {
 	//crimeCtrl := controllers.NewCrimeController(crimeSvc)
 	reportCtrl := controllers.NewReportController(reportSvc)
 	//neighborhoodCtrl := controllers.NewNeighborhoodController(neighborhoodSvc)
+	kbController := controllers.NewKnowledgeBaseController(
+		"postgres://user:pass@localhost:5432/source_db?sslmode=disable",
+		"postgres://user:pass@localhost:5433/radar_campinas?sslmode=disable")
+	
 
 	// Initialize Echo
 	e := echo.New()
@@ -55,7 +59,8 @@ func main() {
 	// crimeCtrl.Register(api)
 	// neighborhoodCtrl.Register(api)
 	reportCtrl.Register(api)
-
+	kbController.Register(api)
+	
 	// Start server
 	e.Logger.Fatal(e.Start(":8080"))
 

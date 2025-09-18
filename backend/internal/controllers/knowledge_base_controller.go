@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/labstack/echo/v4"
 	"database/sql"
 	"log"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/AloysioLvy/TccRadarCampinas/backend/cmd/server"
+	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
 )
 
 type KnowledgeBaseController struct {
@@ -26,43 +26,43 @@ func NewKnowledgeBaseController(sourceDSN, targetDSN string) *KnowledgeBaseContr
 	}
 }
 
-func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
+// ✅ Ponto de entrada: rota que dispara geração da base
+func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context) error {
+	background := context.Background()
 
-	// conectar ao source DB
+	// Conectar no Source DB
 	sourceDB, err := sql.Open("postgres", c.SourceDSN)
 	if err != nil {
-		http.Error(w, "Erro conectando ao source DB: "+err.Error(), http.StatusInternalServerError)
-		return
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{"error": "Erro Source DB: " + err.Error()})
 	}
 	defer sourceDB.Close()
 
-	// conectar ao target DB
-	targetDB, err := pgxpool.New(ctx, c.TargetDSN)
+	// Conectar no Target DB
+	targetDB, err := pgxpool.New(background, c.TargetDSN)
 	if err != nil {
-		http.Error(w, "Erro conectando ao target DB: "+err.Error(), http.StatusInternalServerError)
-		return
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{"error": "Erro Target DB: " + err.Error()})
 	}
 	defer targetDB.Close()
 
-	config := &main.KnowledgeBaseConfig{
+	config := &services.KnowledgeBaseConfig{
 		SourceDB:       sourceDB,
 		TargetDB:       targetDB,
-		CellResolution: 500, // ou 1000
+		CellResolution: 500,
 		BatchSize:      500,
-		StartDate:      time.Now().AddDate(-1, 0, 0), // últimos 12 meses
+		StartDate:      time.Now().AddDate(-1, 0, 0),
 		EndDate:        time.Now(),
 	}
+	generator := services.NewKnowledgeBaseGenerator(config)
 
-	generator := main.NewKnowledgeBaseGenerator(config)
-
-	if err := generator.GenerateKnowledgeBase(ctx); err != nil {
+	if err := generator.GenerateKnowledgeBase(background); err != nil {
 		log.Printf("Erro ao gerar KB: %v", err)
-		http.Error(w, "Falha ao gerar a base de conhecimento: "+err.Error(), http.StatusInternalServerError)
-		return
+		return ctx.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	resp := map[string]string{"status": "Base de conhecimento gerada com sucesso!"}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	return ctx.JSON(http.StatusOK, echo.Map{"status": "Base de conhecimento gerada com sucesso"})
+}
+
+// ✅ Método padrão para registrar a rota no Echo API group
+func (c *KnowledgeBaseController) Register(g *echo.Group) {
+	g.POST("/knowledge-base/generate", c.GenerateKnowledgeBaseHandler)
 }
