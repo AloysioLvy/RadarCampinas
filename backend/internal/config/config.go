@@ -18,9 +18,11 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
-	// reloaded .env in dev
-
-	_ = godotenv.Load("../.env.local")
+	if err := godotenv.Load(".env.local"); err == nil {
+		fmt.Println("Carregado .env.local")
+	} else {
+		_ = godotenv.Load(".env.docker")
+	}
 
 	cfg := &Config{
 		DBHost:     os.Getenv("DB_HOST"),
@@ -35,7 +37,7 @@ func Load() (*Config, error) {
 	fmt.Printf("Config carregada: %+v\n", cfg)
 
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
-		return nil, fmt.Errorf("Variaveis de ambiente de DB não configuradas", cfg)
+		return nil, fmt.Errorf("Variaveis de ambiente de DB não configuradas: %+v", cfg)
 	}
 	return cfg, nil
 }
