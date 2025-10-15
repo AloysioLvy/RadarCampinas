@@ -10,7 +10,6 @@ services:
     depends_on:
       - db
     environment:
-      # Conexão com o PostgreSQL local (container db)
       DB_HOST: db
       DB_PORT: "5432"
       DB_USER: seu_usuario
@@ -21,13 +20,14 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:14-alpine
+    image: postgis/postgis:14-3.3-alpine  
     environment:
       POSTGRES_USER: seu_usuario
       POSTGRES_PASSWORD: sua_senha
       POSTGRES_DB: seu_banco
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d 
     ports:
       - "5432:5432"
     restart: unless-stopped
