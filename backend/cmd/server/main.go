@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -54,4 +58,35 @@ func main() {
 
 	// Start server
 	e.Logger.Fatal(e.Start(":8080"))
+
+	// Configuração (ajuste conforme seu ambiente)
+	sourceDB, err := sql.Open("postgres", "postgres://user:pass@localhost/source_db?sslmode=disable")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sourceDB.Close()
+
+	targetDB, err := pgxpool.New(context.Background(), "postgres://user:pass@localhost/radar_campinas?sslmode=disable")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer targetDB.Close()
+
+	config := &KnowledgeBaseConfig{
+		SourceDB:       sourceDB,
+		TargetDB:       targetDB,
+		CellResolution: 500, // 500 metros
+		BatchSize:      1000,
+		StartDate:      time.Now().AddDate(-1, 0, 0), // último ano
+		EndDate:        time.Now(),
+	}
+
+	generator := NewKnowledgeBaseGenerator(config)
+
+	ctx := context.Background()
+	if err := generator.GenerateKnowledgeBase(ctx); err != nil {
+		log.Fatalf("Erro na geração da base de conhecimento: %v", err)
+	}
+
+	log.Println("Base de conhecimento gerada com sucesso!")
 }
