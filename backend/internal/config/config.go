@@ -30,8 +30,8 @@ func Load() (*Config, error) {
 		DBUser:     os.Getenv("DB_USER"),
 		DBPassword: os.Getenv("DB_PASSWORD"),
 		DBName:     os.Getenv("DB_NAME"),
-		DBSSLMode:  os.Getenv("DB_SSLMODE"),
-		DBTimezone: os.Getenv("DB_TIMEZONE"),
+		DBSSLMode:  os.Getenv("DB_SSL_MODE"),
+		DBTimezone: getEnvOrDefault("DB_TIMEZONE", "America/Sao_Paulo"),
 	}
 
 	fmt.Printf("Config carregada: %+v\n", cfg)
@@ -40,4 +40,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("variaveis de ambiente de DB não configuradas: %+v", cfg)
 	}
 	return cfg, nil
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	_ "github.com/lib/pq"
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/controllers"
@@ -39,12 +39,12 @@ func main() {
 	// Create controllers
 	reportCtrl := controllers.NewReportController(reportSvc)
 
-	// Configurar DSNs para o Knowledge Base Controller
+	// Configurar DSN para MySQL no Knowledge Base Controller
 	sourceDSN := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName, cfg.DBSSLMode,
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=America%%2FSao_Paulo",
+		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName,
 	)
-	targetDSN := sourceDSN
+	targetDSN := sourceDSN // Mesmo banco para source e target
 
 	kbController := controllers.NewKnowledgeBaseController(sourceDSN, targetDSN)
 
@@ -62,15 +62,11 @@ func main() {
 
 	// Registrar rotas do KB controller
 	log.Println("🔧 Registrando rotas do Knowledge Base...")
-	// Depois de criar o kbController, adicione:
 	api.POST("/knowledge-base/generate", kbController.GenerateKnowledgeBaseHandler)
 	api.GET("/knowledge-base/health", kbController.HealthCheckHandler)
 	api.GET("/knowledge-base/status", kbController.StatusHandler)
 
-	// E comente a linha:
-	// kbController.Register(api)
-	// ADICIONAR ROTAS MANUALMENTE PARA DEBUG
-	log.Println("🔧 Registrando rotas manualmente para debug...")
+	// Rota de teste
 	api.GET("/kb-test", func(c echo.Context) error {
 		return c.JSON(200, echo.Map{"message": "KB Test route works!"})
 	})
