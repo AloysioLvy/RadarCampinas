@@ -6,13 +6,13 @@ import (
 	"log"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/database/migrations"
-	_ "github.com/lib/pq"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	// Conectar ao banco
-	connStr := "host=localhost port=5432 user=seu_usuario password=sua_senha dbname=seu_banco sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+	// Conectar ao MySQL
+	dsn := "BD24452:BD24452@tcp(regulus.cotuca.unicamp.br:3306)/BD24452?charset=utf8mb4&parseTime=True&loc=America%2FSao_Paulo"
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatal("Erro ao conectar ao banco:", err)
 	}
@@ -27,10 +27,10 @@ func main() {
 		log.Fatal("Erro ao pingar o banco:", err)
 	}
 
-	fmt.Println("✅ Conectado ao banco com sucesso!")
+	fmt.Println("✅ Conectado ao MySQL com sucesso!")
 
 	// Ler o arquivo SQL do embed
-	sqlBytes, err := migrations.Files.ReadFile("knowledge_base_schema.sql")
+	sqlBytes, err := migrations.Files.ReadFile("knowledge_base_schema_mysql.sql")
 	if err != nil {
 		log.Fatal("Erro ao ler arquivo SQL embutido:", err)
 	}
@@ -46,15 +46,19 @@ func main() {
 
 	fmt.Println("✅ Migration executada com sucesso!")
 
-	// Verificar schemas criados
+	// Verificar tabelas criadas
 	rows, err := db.Query(`
-		SELECT schema_name 
-		FROM information_schema.schemata 
-		WHERE schema_name IN ('curated', 'external', 'features', 'analytics')
-		ORDER BY schema_name
+		SELECT TABLE_NAME 
+		FROM information_schema.TABLES 
+		WHERE TABLE_SCHEMA = 'BD24452'
+		AND TABLE_NAME LIKE 'curated_%' 
+		   OR TABLE_NAME LIKE 'external_%'
+		   OR TABLE_NAME LIKE 'features_%'
+		   OR TABLE_NAME LIKE 'analytics_%'
+		ORDER BY TABLE_NAME
 	`)
 	if err != nil {
-		log.Fatal("Erro ao verificar schemas:", err)
+		log.Fatal("Erro ao verificar tabelas:", err)
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
@@ -62,45 +66,14 @@ func main() {
 		}
 	}()
 
-	fmt.Println("\n📊 Schemas criados:")
-	for rows.Next() {
-		var schema string
-		if err := rows.Scan(&schema); err != nil {
-			log.Printf("Erro ao escanear schema: %v", err)
-			continue
-		}
-		fmt.Printf("  ✓ %s\n", schema)
-	}
-
-	// Verificar tabelas criadas
-	rows2, err := db.Query(`
-		SELECT table_schema, table_name 
-		FROM information_schema.tables 
-		WHERE table_schema IN ('curated', 'external', 'features', 'analytics')
-		ORDER BY table_schema, table_name
-	`)
-	if err != nil {
-		log.Fatal("Erro ao verificar tabelas:", err)
-	}
-	defer func() {
-		if err := rows2.Close(); err != nil {
-			log.Printf("Erro ao fechar rows2: %v", err)
-		}
-	}()
-
 	fmt.Println("\n📋 Tabelas criadas:")
-	currentSchema := ""
-	for rows2.Next() {
-		var schema, table string
-		if err := rows2.Scan(&schema, &table); err != nil {
+	for rows.Next() {
+		var table string
+		if err := rows.Scan(&table); err != nil {
 			log.Printf("Erro ao escanear tabela: %v", err)
 			continue
 		}
-		if schema != currentSchema {
-			fmt.Printf("\n  %s:\n", schema)
-			currentSchema = schema
-		}
-		fmt.Printf("    ✓ %s\n", table)
+		fmt.Printf("  ✓ %s\n", table)
 	}
 
 	fmt.Println("\n🎉 Tudo pronto!")
