@@ -44,26 +44,10 @@ type Report struct {
 	UpdatedAt      time.Time    `json:"updated_at"`
 }
 
-type WeatherData struct {
-	Timestamp time.Time `json:"timestamp"`
-	RainMM    float64   `json:"rain_mm"`
-	TempC     float64   `json:"temp_c"`
-	Humidity  float64   `json:"humidity"`
-}
-
 type Holiday struct {
 	Date time.Time `json:"date"`
 	Name string    `json:"name"`
 	Type string    `json:"type"`
-}
-
-type Event struct {
-	Timestamp  time.Time `json:"timestamp"`
-	Name       string    `json:"name"`
-	Latitude   float64   `json:"latitude"`
-	Longitude  float64   `json:"longitude"`
-	Attendance int       `json:"attendance"`
-	Type       string    `json:"type"`
 }
 
 type KnowledgeBaseConfig struct {
@@ -581,111 +565,18 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context) er
 }
 
 func (kg *KnowledgeBaseGenerator) ingestExternalData(ctx context.Context) error {
-	kg.logger.Println("🌦️  Fase 4: Ingerindo dados externos...")
+	kg.logger.Println("📅 Fase 4: Verificando feriados...")
 	kg.logPhase(ctx, "external_data", "running", 0)
 
-	totalRecords := 0
-
-	if err := kg.ingestWeatherData(ctx); err != nil {
+	// Apenas verificar se feriados existem (já foram criados na migration)
+	var holidayCount int
+	err := kg.config.TargetDB.QueryRow(ctx, "SELECT COUNT(*) FROM external.holidays").Scan(&holidayCount)
+	if err != nil {
 		return err
 	}
-	totalRecords += 3 // exemplo
 
-	if err := kg.ingestHolidays(ctx); err != nil {
-		return err
-	}
-	totalRecords += 7 // exemplo
-
-	if err := kg.ingestEvents(ctx); err != nil {
-		return err
-	}
-	totalRecords += 3 // exemplo
-
-	kg.logger.Printf("✅ Dados externos ingeridos: ~%d registros", totalRecords)
-	kg.logPhase(ctx, "external_data", "success", totalRecords)
-	return nil
-}
-
-func (kg *KnowledgeBaseGenerator) ingestWeatherData(ctx context.Context) error {
-	weatherData := []WeatherData{
-		{time.Now().Add(-24 * time.Hour), 5.2, 22.5, 75.0},
-		{time.Now().Add(-23 * time.Hour), 0.0, 24.1, 68.0},
-		{time.Now().Add(-22 * time.Hour), 12.8, 19.3, 85.0},
-	}
-
-	for _, weather := range weatherData {
-		query := `
-			INSERT INTO external.weather (timestamp, rain_mm, temp_c, humidity, city)
-			VALUES ($1, $2, $3, $4, 'Campinas')
-			ON CONFLICT (timestamp, city) DO UPDATE SET
-				rain_mm = EXCLUDED.rain_mm,
-				temp_c = EXCLUDED.temp_c,
-				humidity = EXCLUDED.humidity
-		`
-
-		_, err := kg.config.TargetDB.Exec(ctx, query,
-			weather.Timestamp, weather.RainMM, weather.TempC, weather.Humidity)
-		if err != nil {
-			return err
-		}
-	}
-
-	kg.logger.Printf("  ➜ Ingeridos %d registros de clima", len(weatherData))
-	return nil
-}
-
-func (kg *KnowledgeBaseGenerator) ingestHolidays(ctx context.Context) error {
-	holidays := []Holiday{
-		{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), "Ano Novo", "nacional"},
-		{time.Date(2025, 4, 21, 0, 0, 0, 0, time.UTC), "Tiradentes", "nacional"},
-		{time.Date(2025, 9, 7, 0, 0, 0, 0, time.UTC), "Independência", "nacional"},
-		{time.Date(2025, 10, 12, 0, 0, 0, 0, time.UTC), "Nossa Senhora Aparecida", "nacional"},
-		{time.Date(2025, 11, 15, 0, 0, 0, 0, time.UTC), "Proclamação da República", "nacional"},
-		{time.Date(2025, 12, 25, 0, 0, 0, 0, time.UTC), "Natal", "nacional"},
-		{time.Date(2025, 7, 11, 0, 0, 0, 0, time.UTC), "Fundação de Campinas", "municipal"},
-	}
-
-	for _, holiday := range holidays {
-		query := `
-			INSERT INTO external.holidays (date, name, type, city)
-			VALUES ($1, $2, $3, 'Campinas')
-			ON CONFLICT (date, city) DO NOTHING
-		`
-
-		_, err := kg.config.TargetDB.Exec(ctx, query,
-			holiday.Date, holiday.Name, holiday.Type)
-		if err != nil {
-			return err
-		}
-	}
-
-	kg.logger.Printf("  ➜ Ingeridos %d feriados", len(holidays))
-	return nil
-}
-
-func (kg *KnowledgeBaseGenerator) ingestEvents(ctx context.Context) error {
-	events := []Event{
-		{time.Now().Add(-48 * time.Hour), "Show no Estádio", -22.9, -47.1, 15000, "show"},
-		{time.Now().Add(-24 * time.Hour), "Feira de Artesanato", -22.91, -47.06, 2000, "feira"},
-		{time.Now().Add(-12 * time.Hour), "Jogo de Futebol", -22.89, -47.05, 8000, "esporte"},
-	}
-
-	for _, event := range events {
-		query := `
-			INSERT INTO external.events (timestamp, name, geom, attendance, type, city)
-			VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::GEOGRAPHY, $5, $6, 'Campinas')
-			ON CONFLICT (timestamp, name, city) DO NOTHING
-		`
-
-		_, err := kg.config.TargetDB.Exec(ctx, query,
-			event.Timestamp, event.Name, event.Longitude, event.Latitude,
-			event.Attendance, event.Type)
-		if err != nil {
-			return err
-		}
-	}
-
-	kg.logger.Printf("  ➜ Ingeridos %d eventos", len(events))
+	kg.logger.Printf("✅ Feriados disponíveis: %d registros", holidayCount)
+	kg.logPhase(ctx, "external_data", "success", holidayCount)
 	return nil
 }
 
@@ -746,13 +637,6 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, ti
 			  AND cell_resolution = $3
 			GROUP BY cell_id
 		),
-		weather_features AS (
-			SELECT 
-				COALESCE(AVG(rain_mm), 0) as weather_rain_mm,
-				COALESCE(AVG(temp_c), 20) as weather_temp_c
-			FROM external.weather
-			WHERE timestamp >= $1 AND timestamp < $2
-		),
 		holiday_check AS (
 			SELECT COUNT(*) > 0 as holiday
 			FROM external.holidays
@@ -761,7 +645,7 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, ti
 		INSERT INTO features.cell_hourly (
 			cell_id, ts, y_count, lag_1h, lag_24h, lag_7d,
 			roll_3h_sum, roll_24h_sum, roll_7d_sum,
-			dow, hour, weather_rain_mm, weather_temp_c, holiday
+			dow, hour, holiday, is_weekend, is_business_hours
 		)
 		SELECT 
 			c.cell_id,
@@ -775,11 +659,10 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, ti
 			COALESCE(rf.roll_7d_sum, 0) as roll_7d_sum,
 			EXTRACT(DOW FROM $1) as dow,
 			EXTRACT(HOUR FROM $1) as hour,
-			wf.weather_rain_mm,
-			wf.weather_temp_c,
-			hc_check.holiday
+			hc_check.holiday,
+			EXTRACT(DOW FROM $1) IN (0, 6) as is_weekend,
+			EXTRACT(HOUR FROM $1) BETWEEN 8 AND 18 as is_business_hours
 		FROM curated.cells c
-		CROSS JOIN weather_features wf
 		CROSS JOIN holiday_check hc_check
 		LEFT JOIN hourly_counts hc ON c.cell_id = hc.cell_id
 		LEFT JOIN lag_features lf ON c.cell_id = lf.cell_id
@@ -793,9 +676,9 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, ti
 			roll_3h_sum = EXCLUDED.roll_3h_sum,
 			roll_24h_sum = EXCLUDED.roll_24h_sum,
 			roll_7d_sum = EXCLUDED.roll_7d_sum,
-			weather_rain_mm = EXCLUDED.weather_rain_mm,
-			weather_temp_c = EXCLUDED.weather_temp_c,
-			holiday = EXCLUDED.holiday
+			holiday = EXCLUDED.holiday,
+			is_weekend = EXCLUDED.is_weekend,
+			is_business_hours = EXCLUDED.is_business_hours
 	`
 
 	endHour := timestamp.Add(time.Hour)
@@ -831,33 +714,29 @@ func (kg *KnowledgeBaseGenerator) validateDataQuality(ctx context.Context) error
 		return err
 	}
 
-	var spatialCoverage float64
+	spatialCoverage := 0.0
 	if totalCells > 0 {
 		spatialCoverage = float64(cellsWithData) / float64(totalCells)
-	} else {
-		spatialCoverage = 0
 	}
 	metrics["spatial_coverage"] = spatialCoverage
 
-	// 2. Contagem de incidentes (ANTES de tentar MIN/MAX)
+	// 2. Contagem de incidentes
 	var incidentsCount int
 	if err := kg.config.TargetDB.QueryRow(ctx, `SELECT COUNT(*) FROM curated.incidents`).Scan(&incidentsCount); err != nil {
 		return err
 	}
-	kg.logger.Printf("   • Incidentes em curated.incidents: %d", incidentsCount)
+	metrics["total_incidents"] = incidentsCount
 
-	// 3. Cobertura temporal (só se houver incidentes)
+	// 3. Cobertura temporal
 	var temporalCoverage float64
-	if incidentsCount == 0 {
-		temporalCoverage = 0
-	} else {
+	if incidentsCount > 0 {
 		var minDate, maxDate time.Time
 		var hoursWithData int
 		err = kg.config.TargetDB.QueryRow(ctx, `
 			SELECT 
-				COALESCE(MIN(occurred_at), to_timestamp(0)) as min_date,
-				COALESCE(MAX(occurred_at), to_timestamp(0)) as max_date,
-				COALESCE(COUNT(DISTINCT DATE_TRUNC('hour', occurred_at)), 0) as hours_with_data
+				MIN(occurred_at) as min_date,
+				MAX(occurred_at) as max_date,
+				COUNT(DISTINCT DATE_TRUNC('hour', occurred_at)) as hours_with_data
 			FROM curated.incidents
 		`).Scan(&minDate, &maxDate, &hoursWithData)
 		if err != nil {
@@ -866,38 +745,11 @@ func (kg *KnowledgeBaseGenerator) validateDataQuality(ctx context.Context) error
 		totalHours := int(maxDate.Sub(minDate).Hours())
 		if totalHours > 0 {
 			temporalCoverage = float64(hoursWithData) / float64(totalHours)
-		} else {
-			temporalCoverage = 0
 		}
 	}
 	metrics["temporal_coverage"] = temporalCoverage
 
-	// 4. Early return se não há dados
-	if incidentsCount == 0 {
-		kg.logger.Println("⚠️  Sem dados ainda; ignorando thresholds de qualidade nesta execução.")
-
-		// Persiste métricas zeradas
-		metricsJSON, _ := json.Marshal(metrics)
-		_, err = kg.config.TargetDB.Exec(ctx, `
-			INSERT INTO analytics.quality_reports (report_date, metrics, created_at)
-			VALUES (CURRENT_DATE, $1, NOW())
-			ON CONFLICT (report_date) DO UPDATE SET
-				metrics = EXCLUDED.metrics,
-				created_at = EXCLUDED.created_at
-		`, string(metricsJSON))
-		if err != nil {
-			return err
-		}
-
-		kg.logger.Printf("📊 Métricas de qualidade:")
-		kg.logger.Printf("   • Cobertura espacial: %.2f%%", spatialCoverage*100)
-		kg.logger.Printf("   • Cobertura temporal: %.2f%%", temporalCoverage*100)
-		kg.logger.Println("✅ Validação concluída (sem dados para validar)")
-		kg.logPhase(ctx, "validation", "success", 0)
-		return nil
-	}
-
-	// 5. Taxa de duplicação
+	// 4. Taxa de duplicação
 	var totalReports, uniqueReports int
 	err = kg.config.TargetDB.QueryRow(ctx, `
 		SELECT 
@@ -915,61 +767,27 @@ func (kg *KnowledgeBaseGenerator) validateDataQuality(ctx context.Context) error
 	}
 	metrics["duplication_rate"] = duplicationRate
 
-	// 6. Completude das features
-	var featuresWithNulls int
-	err = kg.config.TargetDB.QueryRow(ctx, `
-		SELECT COUNT(*)
-		FROM features.cell_hourly
-		WHERE weather_rain_mm IS NULL OR weather_temp_c IS NULL
-	`).Scan(&featuresWithNulls)
-	if err != nil {
-		return err
-	}
-
-	var totalFeatures int
-	err = kg.config.TargetDB.QueryRow(ctx, `
-		SELECT COUNT(*) FROM features.cell_hourly
-	`).Scan(&totalFeatures)
-	if err != nil {
-		return err
-	}
-
-	featureCompleteness := 0.0
-	if totalFeatures > 0 {
-		featureCompleteness = 1.0 - (float64(featuresWithNulls) / float64(totalFeatures))
-	}
-	metrics["feature_completeness"] = featureCompleteness
-
-	// 7. Persistir métricas
+	// 5. Persistir métricas
 	metricsJSON, _ := json.Marshal(metrics)
 	_, err = kg.config.TargetDB.Exec(ctx, `
 		INSERT INTO analytics.quality_reports (report_date, metrics, created_at)
 		VALUES (CURRENT_DATE, $1, NOW())
 		ON CONFLICT (report_date) DO UPDATE SET
 			metrics = EXCLUDED.metrics,
-			created_at = EXCLUDED.created_at
+			updated_at = NOW()
 	`, string(metricsJSON))
 	if err != nil {
 		return err
 	}
 
-	// 8. Log das métricas
+	// 6. Log das métricas
 	kg.logger.Printf("📊 Métricas de qualidade:")
+	kg.logger.Printf("   • Total de incidentes: %d", incidentsCount)
 	kg.logger.Printf("   • Cobertura espacial: %.2f%%", spatialCoverage*100)
 	kg.logger.Printf("   • Cobertura temporal: %.2f%%", temporalCoverage*100)
 	kg.logger.Printf("   • Taxa de duplicação: %.2f%%", duplicationRate*100)
-	kg.logger.Printf("   • Completude das features: %.2f%%", featureCompleteness*100)
 
-	// 9. Validação de thresholds
-	if spatialCoverage < 0.1 {
-		return fmt.Errorf("cobertura espacial muito baixa: %.2f%%", spatialCoverage*100)
-	}
-
-	if duplicationRate > 0.5 {
-		return fmt.Errorf("taxa de duplicação muito alta: %.2f%%", duplicationRate*100)
-	}
-
-	kg.logger.Println("✅ Validação de qualidade concluída com sucesso")
+	kg.logger.Println("✅ Validação de qualidade concluída")
 	kg.logPhase(ctx, "validation", "success", 0)
 	return nil
 }

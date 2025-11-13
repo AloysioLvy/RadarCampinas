@@ -1,14 +1,12 @@
 -- ============================================================================
--- KNOWLEDGE BASE SCHEMA MIGRATIONS
+-- KNOWLEDGE BASE SCHEMA MIGRATIONS - OTIMIZADO
 -- TCC Radar Campinas - Base de Conhecimento para IA Preditiva
 -- ============================================================================
--- Versão: 1.0.0
--- Data: 2025-10-09
--- Descrição: Cria todos os schemas e tabelas necessários para a base de
---           conhecimento de criminalidade preditiva em Campinas
+-- Versão: 1.1.0 (Otimizada)
+-- Descrição: Schema simplificado focado apenas no essencial
 -- ============================================================================
 
--- Habilitar extensão PostGIS para dados geoespaciais
+-- Habilitar extensão PostGIS
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
@@ -19,7 +17,7 @@ CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
 CREATE SCHEMA IF NOT EXISTS curated;
 
--- Tabela de incidentes criminais (dados migrados do DB legado)
+-- Tabela de incidentes criminais
 CREATE TABLE IF NOT EXISTS curated.incidents (
     id VARCHAR(50) PRIMARY KEY,
     occurred_at TIMESTAMP NOT NULL,
@@ -35,7 +33,7 @@ CREATE TABLE IF NOT EXISTS curated.incidents (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Índices espaciais e temporais para performance
+-- Índices espaciais e temporais
 CREATE INDEX IF NOT EXISTS idx_incidents_geom ON curated.incidents USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_incidents_occurred_at ON curated.incidents(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_incidents_cell_id ON curated.incidents(cell_id);
@@ -58,36 +56,17 @@ CREATE INDEX IF NOT EXISTS idx_cells_city ON curated.cells(city);
 
 -- ============================================================================
 -- SCHEMA: external
--- Propósito: Dados externos que influenciam a criminalidade
+-- Propósito: Dados externos (apenas feriados)
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS external;
 
--- Tabela de dados meteorológicos
-CREATE TABLE IF NOT EXISTS external.weather (
-    id SERIAL PRIMARY KEY,
-    timestamp TIMESTAMP NOT NULL,
-    rain_mm FLOAT,
-    temp_c FLOAT,
-    humidity FLOAT,
-    wind_speed FLOAT,
-    pressure FLOAT,
-    city VARCHAR(50) DEFAULT 'Campinas',
-    source VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(timestamp, city)
-);
-
--- Índices para weather
-CREATE INDEX IF NOT EXISTS idx_weather_timestamp ON external.weather(timestamp);
-CREATE INDEX IF NOT EXISTS idx_weather_city ON external.weather(city);
-
--- Tabela de feriados e datas especiais
+-- Tabela de feriados (criada e populada uma única vez)
 CREATE TABLE IF NOT EXISTS external.holidays (
     id SERIAL PRIMARY KEY,
     date DATE NOT NULL,
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(50), -- nacional, estadual, municipal
+    type VARCHAR(50),
     city VARCHAR(50) DEFAULT 'Campinas',
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(date, city)
@@ -96,37 +75,60 @@ CREATE TABLE IF NOT EXISTS external.holidays (
 -- Índices para holidays
 CREATE INDEX IF NOT EXISTS idx_holidays_date ON external.holidays(date);
 CREATE INDEX IF NOT EXISTS idx_holidays_city ON external.holidays(city);
-CREATE INDEX IF NOT EXISTS idx_holidays_type ON external.holidays(type);
 
--- Tabela de eventos (shows, jogos, manifestações)
-CREATE TABLE IF NOT EXISTS external.events (
-    id SERIAL PRIMARY KEY,
-    timestamp TIMESTAMP NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    geom GEOGRAPHY(POINT, 4326) NOT NULL,
-    attendance INTEGER,
-    type VARCHAR(50), -- show, esporte, feira, manifestacao, etc
-    impact_radius INTEGER DEFAULT 1000, -- metros
-    city VARCHAR(50) DEFAULT 'Campinas',
-    source VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(timestamp, name, city)
-);
-
--- Índices para events
-CREATE INDEX IF NOT EXISTS idx_events_geom ON external.events USING GIST(geom);
-CREATE INDEX IF NOT EXISTS idx_events_timestamp ON external.events(timestamp);
-CREATE INDEX IF NOT EXISTS idx_events_type ON external.events(type);
-CREATE INDEX IF NOT EXISTS idx_events_city ON external.events(city);
+-- Popular feriados fixos (executado apenas uma vez)
+INSERT INTO external.holidays (date, name, type, city) VALUES
+    -- Feriados Nacionais 2024
+    ('2024-01-01', 'Ano Novo', 'nacional', 'Campinas'),
+    ('2024-02-13', 'Carnaval', 'nacional', 'Campinas'),
+    ('2024-04-21', 'Tiradentes', 'nacional', 'Campinas'),
+    ('2024-05-01', 'Dia do Trabalho', 'nacional', 'Campinas'),
+    ('2024-05-30', 'Corpus Christi', 'nacional', 'Campinas'),
+    ('2024-07-11', 'Fundação de Campinas', 'municipal', 'Campinas'),
+    ('2024-09-07', 'Independência do Brasil', 'nacional', 'Campinas'),
+    ('2024-10-12', 'Nossa Senhora Aparecida', 'nacional', 'Campinas'),
+    ('2024-11-02', 'Finados', 'nacional', 'Campinas'),
+    ('2024-11-15', 'Proclamação da República', 'nacional', 'Campinas'),
+    ('2024-11-20', 'Consciência Negra', 'nacional', 'Campinas'),
+    ('2024-12-25', 'Natal', 'nacional', 'Campinas'),
+    
+    -- Feriados Nacionais 2025
+    ('2025-01-01', 'Ano Novo', 'nacional', 'Campinas'),
+    ('2025-03-04', 'Carnaval', 'nacional', 'Campinas'),
+    ('2025-04-21', 'Tiradentes', 'nacional', 'Campinas'),
+    ('2025-05-01', 'Dia do Trabalho', 'nacional', 'Campinas'),
+    ('2025-06-19', 'Corpus Christi', 'nacional', 'Campinas'),
+    ('2025-07-11', 'Fundação de Campinas', 'municipal', 'Campinas'),
+    ('2025-09-07', 'Independência do Brasil', 'nacional', 'Campinas'),
+    ('2025-10-12', 'Nossa Senhora Aparecida', 'nacional', 'Campinas'),
+    ('2025-11-02', 'Finados', 'nacional', 'Campinas'),
+    ('2025-11-15', 'Proclamação da República', 'nacional', 'Campinas'),
+    ('2025-11-20', 'Consciência Negra', 'nacional', 'Campinas'),
+    ('2025-12-25', 'Natal', 'nacional', 'Campinas'),
+    
+    -- Feriados 2026
+    ('2026-01-01', 'Ano Novo', 'nacional', 'Campinas'),
+    ('2026-02-17', 'Carnaval', 'nacional', 'Campinas'),
+    ('2026-04-21', 'Tiradentes', 'nacional', 'Campinas'),
+    ('2026-05-01', 'Dia do Trabalho', 'nacional', 'Campinas'),
+    ('2026-06-04', 'Corpus Christi', 'nacional', 'Campinas'),
+    ('2026-07-11', 'Fundação de Campinas', 'municipal', 'Campinas'),
+    ('2026-09-07', 'Independência do Brasil', 'nacional', 'Campinas'),
+    ('2026-10-12', 'Nossa Senhora Aparecida', 'nacional', 'Campinas'),
+    ('2026-11-02', 'Finados', 'nacional', 'Campinas'),
+    ('2026-11-15', 'Proclamação da República', 'nacional', 'Campinas'),
+    ('2026-11-20', 'Consciência Negra', 'nacional', 'Campinas'),
+    ('2026-12-25', 'Natal', 'nacional', 'Campinas')
+ON CONFLICT (date, city) DO NOTHING;
 
 -- ============================================================================
 -- SCHEMA: features
--- Propósito: Features engenheiradas para modelos de ML
+-- Propósito: Features engenheiradas para modelos de ML (SIMPLIFICADO)
 -- ============================================================================
 
 CREATE SCHEMA IF NOT EXISTS features;
 
--- Tabela de features por célula e hora
+-- Tabela de features por célula e hora (SEM dados de clima e eventos)
 CREATE TABLE IF NOT EXISTS features.cell_hourly (
     id SERIAL PRIMARY KEY,
     cell_id VARCHAR(50) NOT NULL,
@@ -153,19 +155,10 @@ CREATE TABLE IF NOT EXISTS features.cell_hourly (
     is_weekend BOOLEAN,
     is_business_hours BOOLEAN,
     
-    -- Weather features
-    weather_rain_mm FLOAT,
-    weather_temp_c FLOAT,
-    weather_humidity FLOAT,
-    
     -- Calendar features
     holiday BOOLEAN DEFAULT FALSE,
     day_before_holiday BOOLEAN DEFAULT FALSE,
     day_after_holiday BOOLEAN DEFAULT FALSE,
-    
-    -- Event features
-    nearby_events INTEGER DEFAULT 0,
-    event_attendance INTEGER DEFAULT 0,
     
     -- Spatial features
     neighbor_avg_crime FLOAT,
@@ -199,7 +192,7 @@ CREATE TABLE IF NOT EXISTS analytics.quality_reports (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Índices para quality_reports
+-- Índices
 CREATE INDEX IF NOT EXISTS idx_quality_reports_date ON analytics.quality_reports(report_date);
 CREATE INDEX IF NOT EXISTS idx_quality_reports_metrics ON analytics.quality_reports USING GIN(metrics);
 
@@ -209,15 +202,15 @@ CREATE TABLE IF NOT EXISTS analytics.pipeline_logs (
     execution_id UUID UNIQUE NOT NULL,
     started_at TIMESTAMP NOT NULL,
     finished_at TIMESTAMP,
-    status VARCHAR(20), -- running, success, failed
-    phase VARCHAR(50), -- migrate, spatial_grid, assign_cells, etc
+    status VARCHAR(20),
+    phase VARCHAR(50),
     records_processed INTEGER,
     error_message TEXT,
     execution_time_seconds INTEGER,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Índices para pipeline_logs
+-- Índices
 CREATE INDEX IF NOT EXISTS idx_pipeline_logs_execution_id ON analytics.pipeline_logs(execution_id);
 CREATE INDEX IF NOT EXISTS idx_pipeline_logs_started_at ON analytics.pipeline_logs(started_at);
 CREATE INDEX IF NOT EXISTS idx_pipeline_logs_status ON analytics.pipeline_logs(status);
@@ -268,22 +261,6 @@ ORDER BY date;
 -- FUNCTIONS ÚTEIS
 -- ============================================================================
 
--- Função para calcular distância entre duas geografias
-CREATE OR REPLACE FUNCTION curated.distance_meters(geog1 GEOGRAPHY, geog2 GEOGRAPHY)
-RETURNS FLOAT AS $$
-BEGIN
-    RETURN ST_Distance(geog1, geog2);
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
--- Função para verificar se um ponto está dentro do bbox de Campinas
-CREATE OR REPLACE FUNCTION curated.is_within_campinas(lat FLOAT, lon FLOAT)
-RETURNS BOOLEAN AS $$
-BEGIN
-    RETURN lat >= -23.1 AND lat <= -22.7 AND lon >= -47.3 AND lon <= -46.8;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
 -- Função trigger para atualizar updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -293,7 +270,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Aplicar trigger em tabelas relevantes
+-- Aplicar triggers
 DROP TRIGGER IF EXISTS update_incidents_updated_at ON curated.incidents;
 CREATE TRIGGER update_incidents_updated_at
     BEFORE UPDATE ON curated.incidents
@@ -313,40 +290,18 @@ CREATE TRIGGER update_quality_reports_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
--- COMENTÁRIOS PARA DOCUMENTAÇÃO
+-- COMENTÁRIOS
 -- ============================================================================
 
 COMMENT ON SCHEMA curated IS 'Dados processados e curados de incidentes criminais';
-COMMENT ON SCHEMA external IS 'Dados externos que influenciam a criminalidade';
+COMMENT ON SCHEMA external IS 'Dados externos (feriados)';
 COMMENT ON SCHEMA features IS 'Features engenheiradas para modelos de ML';
 COMMENT ON SCHEMA analytics IS 'Metadados e métricas de qualidade';
 
-COMMENT ON TABLE curated.incidents IS 'Incidentes criminais migrados do banco legado';
-COMMENT ON TABLE curated.cells IS 'Grade espacial de células para agregação geográfica';
-COMMENT ON TABLE external.weather IS 'Dados meteorológicos históricos e em tempo real';
-COMMENT ON TABLE external.holidays IS 'Calendário de feriados e datas especiais';
-COMMENT ON TABLE external.events IS 'Eventos que podem impactar a criminalidade';
-COMMENT ON TABLE features.cell_hourly IS 'Features por célula e hora para treinamento de ML';
-COMMENT ON TABLE analytics.quality_reports IS 'Relatórios de qualidade da base de conhecimento';
-COMMENT ON TABLE analytics.pipeline_logs IS 'Logs de execução do pipeline de geração';
-
 -- ============================================================================
--- GRANTS (ajustar conforme suas necessidades de segurança)
+-- REGISTRO DE MIGRAÇÃO
 -- ============================================================================
 
--- Conceder acesso ao usuário da aplicação (substitua 'app_user' pelo seu usuário)
--- GRANT USAGE ON SCHEMA curated, external, features, analytics TO app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA curated TO app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA external TO app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA features TO app_user;
--- GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA analytics TO app_user;
--- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA external, features, analytics TO app_user;
-
--- ============================================================================
--- FIM DAS MIGRATIONS
--- ============================================================================
-
--- Inserir registro de migração bem-sucedida
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'schema_migrations') THEN
@@ -357,15 +312,16 @@ BEGIN
     END IF;
     
     INSERT INTO public.schema_migrations (version, applied_at)
-    VALUES ('knowledge_base_v1.0.0', NOW())
+    VALUES ('knowledge_base_v1.1.0_optimized', NOW())
     ON CONFLICT (version) DO NOTHING;
 END $$;
 
 -- Log de sucesso
 DO $$
 BEGIN
-    RAISE NOTICE '✅ Knowledge Base Schema Migrations aplicadas com sucesso!';
+    RAISE NOTICE '✅ Knowledge Base Schema Migrations (OTIMIZADO) aplicadas com sucesso!';
     RAISE NOTICE '📊 Schemas criados: curated, external, features, analytics';
-    RAISE NOTICE '🗂️  Tabelas criadas: 9 tabelas principais + views + functions';
-    RAISE NOTICE '🚀 Sistema pronto para geração da base de conhecimento!';
+    RAISE NOTICE '🗂️  Tabelas: incidents, cells, holidays, cell_hourly, quality_reports, pipeline_logs';
+    RAISE NOTICE '⚡ Otimizações: Removido weather, events; Feriados pré-populados';
+    RAISE NOTICE '🚀 Sistema pronto!';
 END $$;
