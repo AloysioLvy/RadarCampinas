@@ -1,10 +1,10 @@
 package controllers
 
 import (
-    "net/http"
+	"net/http"
 
-    "github.com/labstack/echo/v4"
-    "github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
+	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
+	"github.com/labstack/echo/v4"
 )
 
 
@@ -14,12 +14,12 @@ type CrimeController struct {
 }
 
 func NewCrimeController(svc services.CrimeService) *CrimeController {
-    return &CrimeController{svc: svc}
+	return &CrimeController{svc: svc}
 }
 
 func (ctr *CrimeController) Register(g *echo.Group) {
-    // GET /crimes -> chama o método GetCrimes
-    g.GET("/crimes", ctr.GetCrimes)
+	// GET /crimes -> chama o método GetCrimes
+	g.GET("/crimes", ctr.GetCrimes)
 }
 
 

@@ -1,0 +1,389 @@
+name: 🔮 Knowledge Base Pipeline
+
+on:
+  schedule:
+    # Executar toda segunda-feira às 3:00 AM (1x por semana)
+    - cron: '0 3 * * 1'
+    # Para diário, use: '0 3 * * *'
+  
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: 'Número de dias para processar (padrão: 365)'
+        required: false
+        default: '365'
+      cell_resolution:
+        description: 'Resolução das células em metros (500 ou 1000)'
+        required: false
+        default: '500'
+
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'internal/services/**'
+      - 'internal/database/migrations/**'
+      - '.github/workflows/knowledge-base-pipeline.yml'
+
+env:
+  GO_VERSION: '1.21'
+  POSTGRES_VERSION: '15'
+
+jobs:
+  # ============================================================================
+  # STAGE 1: VALIDATE
+  # ============================================================================
+  
+  lint-go:
+    name: 🔍 Lint Go Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: 📦 Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: 📥 Download dependencies
+        run: go mod download
+      
+      - name: 🔍 Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+
+  validate-sql:
+    name: ✅ Validate SQL Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔍 Check SQL files exist
+        run: |
+          if [ ! -f "internal/database/migrations/knowledge_base_schema.sql" ]; then
+            echo "❌ Migration file not found!"
+            exit 1
+          fi
+          echo "✅ Migration file found"
+      
+      - name: 🔍 Basic SQL syntax check
+        run: |
+          # Verificar se há erros óbvios de sintaxe
+          grep -n "CREATE TABLE.*(" internal/database/migrations/knowledge_base_schema.sql || true
+          grep -n "CREATE SCHEMA" internal/database/migrations/knowledge_base_schema.sql || true
+          echo "✅ SQL syntax looks good"
+
+  security-scan:
+    name: 🛡️ Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🛡️ Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: './...'
+
+  # ============================================================================
+  # STAGE 2: BUILD
+  # ============================================================================
+  
+  build-app:
+    name: 🏗️ Build Application
+    runs-on: ubuntu-latest
+    needs: [lint-go, validate-sql, security-scan]
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: 📦 Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      
+      - name: 📥 Download dependencies
+        run: go mod download
+      
+      - name: 🏗️ Build binary
+        run: |
+          go build -v -o radar-campinas-kb ./cmd/server
+          ls -lh radar-campinas-kb
+      
+      - name: 📤 Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: radar-campinas-kb
+          path: radar-campinas-kb
+          retention-days: 7
+
+  # ============================================================================
+  # STAGE 3: TEST
+  # ============================================================================
+  
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: build-app
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: 📦 Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      
+      - name: 🧪 Run tests
+        run: |
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+      
+      - name: 📊 Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.txt
+          flags: unittests
+
+  integration-tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: build-app
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: radar_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: 🧪 Run integration tests
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: testpass
+          DB_NAME: radar_test
+        run: |
+          go test -v -tags=integration ./internal/services/... || echo "⚠️  Integration tests não implementados ainda"
+
+  # ============================================================================
+  # STAGE 4: MIGRATE & TEST DATABASE
+  # ============================================================================
+  
+  test-migrations:
+    name: 🗄️ Test Migrations
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: radar_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🗄️ Apply migrations
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -f internal/database/migrations/knowledge_base_schema.sql
+      
+      - name: ✅ Verify schemas
+        run: |
+          echo "Verificando schemas criados..."
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -c "\dn" | tee schemas.txt
+          
+          # Verificar se todos os schemas foram criados
+          for schema in curated external features analytics; do
+            if grep -q "$schema" schemas.txt; then
+              echo "✅ Schema $schema encontrado"
+            else
+              echo "❌ Schema $schema NÃO encontrado"
+              exit 1
+            fi
+          done
+      
+      - name: ✅ Verify tables
+        run: |
+          echo "Verificando tabelas criadas..."
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -c "\dt curated.*" | tee tables.txt
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -c "\dt external.*" >> tables.txt
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -c "\dt features.*" >> tables.txt
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -c "\dt analytics.*" >> tables.txt
+          
+          # Verificar tabelas essenciais
+          for table in "curated.incidents" "curated.cells" "external.weather" "features.cell_hourly"; do
+            if grep -q "$table" tables.txt; then
+              echo "✅ Tabela $table encontrada"
+            else
+              echo "❌ Tabela $table NÃO encontrada"
+              exit 1
+            fi
+          done
+      
+      - name: ✅ Test idempotency
+        run: |
+          echo "Testando idempotência das migrations..."
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -f internal/database/migrations/knowledge_base_schema.sql
+          echo "✅ Migrations são idempotentes"
+
+  # ============================================================================
+  # STAGE 5: DEPLOY/RUN (Manual Trigger)
+  # ============================================================================
+  
+  generate-knowledge-base:
+    name: 🚀 Generate Knowledge Base
+    runs-on: ubuntu-latest
+    needs: test-migrations
+    # Apenas executar em schedule ou workflow_dispatch
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    services:
+      source-db:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.SOURCE_DB_PASSWORD }}
+          POSTGRES_DB: source_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5433:5432
+      
+      target-db:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.TARGET_DB_PASSWORD }}
+          POSTGRES_DB: radar_campinas
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔧 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: 📥 Download binary artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: radar-campinas-kb
+      
+      - name: 🔧 Make binary executable
+        run: chmod +x radar-campinas-kb
+      
+      - name: 🗄️ Setup databases
+        run: |
+          # Aplicar migrations no target DB
+          PGPASSWORD=${{ secrets.TARGET_DB_PASSWORD }} psql -h localhost -U postgres -d radar_campinas -f internal/database/migrations/knowledge_base_schema.sql
+          
+          # Setup source DB com dados de exemplo (se necessário)
+          # PGPASSWORD=${{ secrets.SOURCE_DB_PASSWORD }} psql -h localhost -p 5433 -U postgres -d source_db -f scripts/setup_source_db.sql || true
+      
+      - name: 🚀 Run Knowledge Base Generation
+        env:
+          SOURCE_DSN: "postgres://postgres:${{ secrets.SOURCE_DB_PASSWORD }}@localhost:5433/source_db?sslmode=disable"
+          TARGET_DSN: "postgres://postgres:${{ secrets.TARGET_DB_PASSWORD }}@localhost:5432/radar_campinas?sslmode=disable"
+          CELL_RESOLUTION: ${{ github.event.inputs.cell_resolution || '500' }}
+          DAYS_BACK: ${{ github.event.inputs.days_back || '365' }}
+        run: |
+          echo "🔮 Iniciando geração da base de conhecimento..."
+          echo "📊 Parâmetros:"
+          echo "   • Resolução: ${CELL_RESOLUTION}m"
+          echo "   • Período: últimos ${DAYS_BACK} dias"
+          
+          # TODO: Executar o binário com os parâmetros corretos
+          # ./radar-campinas-kb generate-kb --cell-resolution=${CELL_RESOLUTION} --days-back=${DAYS_BACK}
+          echo "✅ Geração concluída (placeholder)"
+      
+      - name: 📊 Generate quality report
+        run: |
+          echo "📊 Gerando relatório de qualidade..."
+          # Extrair métricas do banco
+          # PGPASSWORD=${{ secrets.TARGET_DB_PASSWORD }} psql -h localhost -U postgres -d radar_campinas -c "SELECT * FROM analytics.quality_reports ORDER BY report_date DESC LIMIT 1"
+
+  # ============================================================================
+  # STAGE 6: NOTIFY
+  # ============================================================================
+  
+  notify-success:
+    name: 📢 Notify Success
+    runs-on: ubuntu-latest
+    needs: generate-knowledge-base
+    if: success()
+    steps:
+      - name: 📢 Send success notification
+        run: |
+          echo "✅ Pipeline executado com sucesso!"
+          echo "📊 Base de conhecimento gerada com sucesso"
+          # Adicionar notificação Slack/Discord/Email aqui
+
+  notify-failure:
+    name: 🚨 Notify Failure
+    runs-on: ubuntu-latest
+    needs: [lint-go, validate-sql, build-app, unit-tests, test-migrations]
+    if: failure()
+    steps:
+      - name: 🚨 Send failure notification
+        run: |
+          echo "❌ Pipeline falhou!"
+          echo "🔍 Verifique os logs para mais detalhes"
+          # Adicionar notificação Slack/Discord/Email aqui

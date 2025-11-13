@@ -3,31 +3,31 @@ version: '3.8'
 services:
   api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: ./backend/Dockerfile
     ports:
       - "8080:8080"
     depends_on:
       - db
     environment:
-      # Conexão com o PostgreSQL
-      DB_HOST: aws-0-sa-east-1.pooler-supabase.com
-      DB_PORT: "6543"
-      DB_USER: postgnes.woqronzdmitvilgduke
-      DB_PASSWORD: bancoteste123
-      DB_NAME: postigres
-      DB_SSLMODE: require DB
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: seu_usuario
+      DB_PASSWORD: sua_senha
+      DB_NAME: seu_banco
+      DB_SSLMODE: disable
       DB_TIMEZONE: UTC
     restart: unless-stopped
 
   db:
-    image: postgres:14-alpine
+    image: postgis/postgis:14-3.3-alpine  
     environment:
       POSTGRES_USER: seu_usuario
       POSTGRES_PASSWORD: sua_senha
       POSTGRES_DB: seu_banco
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d 
     ports:
       - "5432:5432"
     restart: unless-stopped
