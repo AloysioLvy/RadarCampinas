@@ -1,23 +1,5 @@
 .PHONY: run lint build tidy
 
-# Executa a aplicação local
-run:
-	go run ./backend/cmd/server/main.go
-
-# Executa o linting (requer golangci-lint instalado)
-lint:
-	golangci-lint run ./...
-
-# Compila o binário
-build:
-	go build -o bin/app ./backend/cmd/server/main.go
-
-# Atualiza dependências do Go
-tidy:
-	go mod tidy
-
-.PHONY: help build run test clean docker-up docker-down migrate kb-generate health status
-
 # Cores para output
 CYAN=\033[0;36m
 GREEN=\033[0;32m
@@ -42,7 +24,7 @@ build: ## Compilar aplicação Go
 
 run: ## Executar aplicação
 	@echo "$(CYAN)🚀 Iniciando servidor...$(NC)"
-	go run cmd/server/main.go
+	go run ./backend/cmd/server/main.go
 
 test: ## Executar testes
 	@echo "$(CYAN)🧪 Executando testes...$(NC)"

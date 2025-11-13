@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
+	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/database/migrations"
 	_ "github.com/lib/pq"
 )
 
@@ -16,7 +16,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Erro ao conectar ao banco:", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Erro ao fechar conexão: %v", err)
+		}
+	}()
 
 	// Testar conexão
 	if err := db.Ping(); err != nil {
@@ -25,11 +29,10 @@ func main() {
 
 	fmt.Println("✅ Conectado ao banco com sucesso!")
 
-	// Ler o arquivo SQL
-	sqlFile := "internal/database/migrations/knowledge_base_schema.sql"
-	sqlBytes, err := os.ReadFile(sqlFile)
+	// Ler o arquivo SQL do embed
+	sqlBytes, err := migrations.Files.ReadFile("knowledge_base_schema.sql")
 	if err != nil {
-		log.Fatal("Erro ao ler arquivo SQL:", err)
+		log.Fatal("Erro ao ler arquivo SQL embutido:", err)
 	}
 
 	fmt.Println("📄 Arquivo SQL lido com sucesso!")
@@ -53,12 +56,19 @@ func main() {
 	if err != nil {
 		log.Fatal("Erro ao verificar schemas:", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Erro ao fechar rows: %v", err)
+		}
+	}()
 
 	fmt.Println("\n📊 Schemas criados:")
 	for rows.Next() {
 		var schema string
-		rows.Scan(&schema)
+		if err := rows.Scan(&schema); err != nil {
+			log.Printf("Erro ao escanear schema: %v", err)
+			continue
+		}
 		fmt.Printf("  ✓ %s\n", schema)
 	}
 
@@ -72,13 +82,20 @@ func main() {
 	if err != nil {
 		log.Fatal("Erro ao verificar tabelas:", err)
 	}
-	defer rows2.Close()
+	defer func() {
+		if err := rows2.Close(); err != nil {
+			log.Printf("Erro ao fechar rows2: %v", err)
+		}
+	}()
 
 	fmt.Println("\n📋 Tabelas criadas:")
 	currentSchema := ""
 	for rows2.Next() {
 		var schema, table string
-		rows2.Scan(&schema, &table)
+		if err := rows2.Scan(&schema, &table); err != nil {
+			log.Printf("Erro ao escanear tabela: %v", err)
+			continue
+		}
 		if schema != currentSchema {
 			fmt.Printf("\n  %s:\n", schema)
 			currentSchema = schema

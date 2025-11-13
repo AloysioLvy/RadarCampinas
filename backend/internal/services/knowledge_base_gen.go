@@ -266,7 +266,11 @@ func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context) err
 	if err != nil {
 		return fmt.Errorf("erro na query: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			kg.logger.Printf("⚠️  Erro ao fechar rows: %v", err)
+		}
+	}()
 
 	batch := make([]map[string]interface{}, 0, kg.config.BatchSize)
 	processed := 0

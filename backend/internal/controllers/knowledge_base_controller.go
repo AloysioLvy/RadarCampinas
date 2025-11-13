@@ -66,7 +66,11 @@ func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context)
 			"details": err.Error(),
 		})
 	}
-	defer sourceDB.Close()
+	defer func() {
+		if err := sourceDB.Close(); err != nil {
+			c.Logger.Printf("Erro ao fechar Source DB: %v", err)
+		}
+	}()
 
 	// Testar conexão
 	if err := sourceDB.Ping(); err != nil {
@@ -153,7 +157,11 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 	// Check Source DB
 	sourceDB, err := sql.Open("postgres", c.SourceDSN)
 	if err == nil {
-		defer sourceDB.Close()
+		defer func() {
+			if err := sourceDB.Close(); err != nil {
+				c.Logger.Printf("Erro ao fechar Source DB: %v", err)
+			}
+		}()
 		if err := sourceDB.Ping(); err == nil {
 			checks["source_db"] = echo.Map{
 				"status":  "ok",
@@ -183,7 +191,7 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 			var schemaCount int
 			query := `SELECT COUNT(*) FROM pg_namespace WHERE nspname IN ('curated', 'external', 'features', 'analytics')`
 			err := targetDB.QueryRow(background, query).Scan(&schemaCount)
-			
+
 			if err == nil && schemaCount == 4 {
 				checks["target_db"] = echo.Map{
 					"status":  "ok",
@@ -316,10 +324,10 @@ func (c *KnowledgeBaseController) StatusHandler(ctx echo.Context) error {
 func (c *KnowledgeBaseController) Register(g *echo.Group) {
 	// Rota principal: gerar base de conhecimento
 	g.POST("/knowledge-base/generate", c.GenerateKnowledgeBaseHandler)
-	
+
 	// Health check: verificar saúde do sistema
 	g.GET("/knowledge-base/health", c.HealthCheckHandler)
-	
+
 	// Status: estatísticas da KB
 	g.GET("/knowledge-base/status", c.StatusHandler)
 }

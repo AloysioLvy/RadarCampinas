@@ -37,7 +37,7 @@ func Load() (*Config, error) {
 	fmt.Printf("Config carregada: %+v\n", cfg)
 
 	if cfg.DBHost == "" || cfg.DBPort == "" || cfg.DBUser == "" || cfg.DBName == "" {
-		return nil, fmt.Errorf("Variaveis de ambiente de DB não configuradas: %+v", cfg)
+		return nil, fmt.Errorf("variaveis de ambiente de DB não configuradas: %+v", cfg)
 	}
 	return cfg, nil
 }
