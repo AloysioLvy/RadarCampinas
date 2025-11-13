@@ -3,10 +3,10 @@ import psycopg2
 
 def get_connection():
     return psycopg2.connect(
-        host="db",
-        database="radar",
-        user="postgres",
-        password="postgres"
+        host="regulus.cotuca.unicamp.br",
+        database="BD24452",
+        user="BD24452",
+        password="BD24452"
     ) # ajustar as credenciais posteriomente
 
 def get_base_knowledge():
