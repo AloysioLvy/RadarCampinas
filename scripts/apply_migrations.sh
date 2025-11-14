@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================================
-# Script para aplicar migrations SQL manualmente
+# Script para aplicar migrations SQL manualmente - MySQL Version
 # ============================================================================
 
 # Cores para output
@@ -15,19 +15,19 @@ NC='\033[0m' # No Color
 # Banner
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════╗"
-echo "║     🔧 Radar Campinas - Apply Migrations                 ║"
+echo "║     🔧 Radar Campinas - Apply Migrations (MySQL)         ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
 # Valores padrão (podem ser sobrescritos por variáveis de ambiente)
-DB_HOST="${DB_HOST:-localhost}"
-DB_PORT="${DB_PORT:-5432}"
-DB_USER="${DB_USER:-postgres}"
-DB_PASSWORD="${DB_PASSWORD:-}"
-DB_NAME="${DB_NAME:-radar_campinas}"
+DB_HOST="${DB_HOST:-regulus.cotuca.unicamp.br}"
+DB_PORT="${DB_PORT:-3306}"
+DB_USER="${DB_USER:-BD24452}"
+DB_PASSWORD="${DB_PASSWORD:-BD24452}"
+DB_NAME="${DB_NAME:-BD24452}"
 
 # Caminho do arquivo de migrations
-MIGRATIONS_FILE="internal/database/migrations/knowledge_base_schema.sql"
+MIGRATIONS_FILE="./backend/internal/database/migrations/knowledge_base_schema_mysql.sql"
 
 # Parse argumentos
 while [[ $# -gt 0 ]]; do
@@ -60,11 +60,11 @@ while [[ $# -gt 0 ]]; do
       echo "Uso: $0 [OPTIONS]"
       echo ""
       echo "Opções:"
-      echo "  --host <HOST>           Host do PostgreSQL (padrão: localhost)"
-      echo "  --port <PORT>           Porta do PostgreSQL (padrão: 5432)"
-      echo "  --user <USER>           Usuário do PostgreSQL (padrão: postgres)"
-      echo "  --password <PASSWORD>   Senha do PostgreSQL"
-      echo "  --database <DB>         Nome do banco de dados (padrão: radar_campinas)"
+      echo "  --host <HOST>           Host do MySQL (padrão: regulus.cotuca.unicamp.br)"
+      echo "  --port <PORT>           Porta do MySQL (padrão: 3306)"
+      echo "  --user <USER>           Usuário do MySQL (padrão: BD24452)"
+      echo "  --password <PASSWORD>   Senha do MySQL (padrão: BD24452)"
+      echo "  --database <DB>         Nome do banco de dados (padrão: BD24452)"
       echo "  --file <PATH>           Caminho do arquivo de migrations"
       echo "  --help                  Mostra esta mensagem"
       echo ""
@@ -100,22 +100,19 @@ echo "   • Banco: $DB_NAME"
 echo "   • Arquivo: $MIGRATIONS_FILE"
 echo ""
 
-# Verificar se psql está instalado
-if ! command -v psql &> /dev/null; then
-  echo -e "${RED}❌ psql não está instalado${NC}"
-  echo "   Instale o PostgreSQL client:"
-  echo "   Ubuntu/Debian: sudo apt-get install postgresql-client"
-  echo "   MacOS: brew install postgresql"
+# Verificar se mysql está instalado
+if ! command -v mysql &> /dev/null; then
+  echo -e "${RED}❌ mysql client não está instalado${NC}"
+  echo "   Instale o MySQL client:"
+  echo "   Ubuntu/Debian: sudo apt-get install mysql-client"
+  echo "   MacOS: brew install mysql-client"
   exit 1
 fi
 
 # Testar conexão
 echo -e "${BLUE}🔍 Testando conexão com o banco de dados...${NC}"
-if [ -n "$DB_PASSWORD" ]; then
-  export PGPASSWORD="$DB_PASSWORD"
-fi
 
-if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
+if ! mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -e "SELECT 1" "$DB_NAME" > /dev/null 2>&1; then
   echo -e "${RED}❌ Não foi possível conectar ao banco de dados${NC}"
   echo "   Verifique as credenciais e se o servidor está acessível"
   exit 1
@@ -123,46 +120,50 @@ fi
 echo -e "${GREEN}✅ Conexão estabelecida${NC}"
 echo ""
 
-# Verificar extensão PostGIS
-echo -e "${BLUE}🔍 Verificando extensão PostGIS...${NC}"
-POSTGIS_EXISTS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT COUNT(*) FROM pg_extension WHERE extname='postgis'")
-if [ "$POSTGIS_EXISTS" -eq "0" ]; then
-  echo -e "${YELLOW}⚠️  PostGIS não está instalado${NC}"
-  echo "   As migrations tentarão instalar automaticamente"
-else
-  echo -e "${GREEN}✅ PostGIS já instalado${NC}"
-fi
-echo ""
-
 # Aplicar migrations
 echo -e "${BLUE}🚀 Aplicando migrations...${NC}"
 echo ""
 
-if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$MIGRATIONS_FILE"; then
+if mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$MIGRATIONS_FILE"; then
   echo ""
   echo -e "${GREEN}✅ Migrations aplicadas com sucesso!${NC}"
   echo ""
   
-  # Verificar schemas criados
-  echo -e "${BLUE}🔍 Verificando schemas criados...${NC}"
-  SCHEMAS=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT nspname FROM pg_namespace WHERE nspname IN ('curated', 'external', 'features', 'analytics') ORDER BY nspname")
-  
-  echo "$SCHEMAS" | while read -r schema; do
-    if [ -n "$schema" ]; then
-      echo -e "   ${GREEN}✓${NC} Schema: $schema"
-    fi
-  done
-  echo ""
-  
   # Verificar tabelas criadas
   echo -e "${BLUE}🔍 Verificando tabelas criadas...${NC}"
-  TABLES=$(psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname IN ('curated', 'external', 'features', 'analytics') ORDER BY schemaname, tablename")
   
-  echo "$TABLES" | while read -r table; do
-    if [ -n "$table" ]; then
-      echo -e "   ${GREEN}✓${NC} Tabela: $table"
-    fi
-  done
+  TABLES=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -e "
+    SELECT TABLE_NAME 
+    FROM information_schema.TABLES 
+    WHERE TABLE_SCHEMA = '$DB_NAME'
+    AND (TABLE_NAME LIKE 'curated_%' 
+      OR TABLE_NAME LIKE 'external_%'
+      OR TABLE_NAME LIKE 'features_%'
+      OR TABLE_NAME LIKE 'analytics_%')
+    ORDER BY TABLE_NAME
+  ")
+  
+  if [ -z "$TABLES" ]; then
+    echo -e "${YELLOW}⚠️  Nenhuma tabela encontrada${NC}"
+  else
+    echo "$TABLES" | while read -r table; do
+      if [ -n "$table" ]; then
+        echo -e "   ${GREEN}✓${NC} Tabela: $table"
+      fi
+    done
+  fi
+  echo ""
+  
+  # Verificar feriados inseridos
+  echo -e "${BLUE}🔍 Verificando feriados inseridos...${NC}"
+  HOLIDAY_COUNT=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -e "SELECT COUNT(*) FROM external_holidays")
+  echo -e "   ${GREEN}✓${NC} Total de feriados: $HOLIDAY_COUNT"
+  echo ""
+  
+  # Verificar versão da migration
+  echo -e "${BLUE}🔍 Verificando versão da migration...${NC}"
+  MIGRATION_VERSION=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -N -e "SELECT version FROM schema_migrations ORDER BY applied_at DESC LIMIT 1" 2>/dev/null || echo "N/A")
+  echo -e "   ${GREEN}✓${NC} Versão: $MIGRATION_VERSION"
   echo ""
   
   echo -e "${GREEN}🎉 Processo concluído!${NC}"
