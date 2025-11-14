@@ -29,7 +29,28 @@ func main() {
 	}
 
 	// Auto-migrate database schemas
-	if err := db.AutoMigrate(&models.Report{}, &models.Crime{}, &models.Neighborhood{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.Report{},
+		&models.Crime{},
+		&models.Neighborhood{},
+		
+		// Tabelas da Knowledge Base - Curated
+		&models.CuratedIncident{},
+		&models.CuratedCell{},
+		
+		// Tabelas da Knowledge Base - External
+		&models.ExternalHoliday{},
+		
+		// Tabelas da Knowledge Base - Features
+		&models.FeaturesCellHourly{},
+		
+		// Tabelas da Knowledge Base - Analytics
+		&models.AnalyticsQualityReport{},
+		&models.AnalyticsPipelineLog{},
+		
+		// Tabela de migrations
+		&models.SchemaMigration{},
+		); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 
