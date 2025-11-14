@@ -50,6 +50,9 @@ func main() {
 		
 		// Tabela de migrations
 		&models.SchemaMigration{},
+
+		// Predict Time
+		&models.PredictCrime{},
 		); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
