@@ -136,7 +136,11 @@ func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context, db 
 	if err != nil {
 		return fmt.Errorf("erro na query: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			kg.logger.Printf("⚠️  Erro ao fechar rows: %v", err)
+		}
+	}()
 
 	processed := 0
 	skipped := 0
@@ -329,7 +333,11 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 	if err != nil {
 		return err
 	}
-	defer cellRows.Close()
+	defer func() {
+		if err := cellRows.Close(); err != nil {
+			kg.logger.Printf("⚠️  Erro ao fechar cellRows: %v", err)
+		}
+	}()
 
 	type Cell struct {
 		ID        string
@@ -352,7 +360,11 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 	if err != nil {
 		return err
 	}
-	defer incidentRows.Close()
+	defer func() {
+		if err := incidentRows.Close(); err != nil {
+			kg.logger.Printf("⚠️  Erro ao fechar incidentRows: %v", err)
+		}
+	}()
 
 	updated := 0
 	cellSizeDegrees := float64(kg.config.CellResolution) / 111000.0
@@ -415,7 +427,11 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			kg.logger.Printf("⚠️  Erro ao fechar rows: %v", err)
+		}
+	}()
 
 	endHour := timestamp.Add(time.Hour)
 
@@ -431,7 +447,10 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 			SELECT COUNT(*) FROM curated_incidents 
 			WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?
 		`
-		db.QueryRowContext(ctx, countQuery, cellID, timestamp, endHour).Scan(&yCount)
+		if err := db.QueryRowContext(ctx, countQuery, cellID, timestamp, endHour).Scan(&yCount); err != nil {
+			kg.logger.Printf("⚠️  Erro ao contar crimes: %v", err)
+			continue
+		}
 
 		// Calcular lags
 		lag1h := timestamp.Add(-time.Hour)
@@ -439,16 +458,24 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 		lag7d := timestamp.Add(-7 * 24 * time.Hour)
 
 		var lag1hCount, lag24hCount, lag7dCount int
-		db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
-			cellID, lag1h, timestamp).Scan(&lag1hCount)
-		db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
-			cellID, lag24h, timestamp).Scan(&lag24hCount)
-		db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
-			cellID, lag7d, timestamp).Scan(&lag7dCount)
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+			cellID, lag1h, timestamp).Scan(&lag1hCount); err != nil {
+			kg.logger.Printf("⚠️  Erro ao calcular lag 1h: %v", err)
+		}
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+			cellID, lag24h, timestamp).Scan(&lag24hCount); err != nil {
+			kg.logger.Printf("⚠️  Erro ao calcular lag 24h: %v", err)
+		}
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+			cellID, lag7d, timestamp).Scan(&lag7dCount); err != nil {
+			kg.logger.Printf("⚠️  Erro ao calcular lag 7d: %v", err)
+		}
 
 		// Verificar feriado
 		var isHoliday bool
-		db.QueryRowContext(ctx, `SELECT COUNT(*) > 0 FROM external_holidays WHERE date = ?`, timestamp.Format("2006-01-02")).Scan(&isHoliday)
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) > 0 FROM external_holidays WHERE date = ?`, timestamp.Format("2006-01-02")).Scan(&isHoliday); err != nil {
+			kg.logger.Printf("⚠️  Erro ao verificar feriado: %v", err)
+		}
 
 		dow := int(timestamp.Weekday())
 		hour := timestamp.Hour()
@@ -488,17 +515,23 @@ func (kg *KnowledgeBaseGenerator) validateDataQuality(ctx context.Context, db *s
 
 	// Total de incidentes
 	var incidentsCount int
-	db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents`).Scan(&incidentsCount)
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents`).Scan(&incidentsCount); err != nil {
+		kg.logger.Printf("⚠️  Erro ao contar incidentes: %v", err)
+	}
 	metrics["total_incidents"] = incidentsCount
 
 	// Total de células
 	var cellsCount int
-	db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_cells`).Scan(&cellsCount)
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_cells`).Scan(&cellsCount); err != nil {
+		kg.logger.Printf("⚠️  Erro ao contar células: %v", err)
+	}
 	metrics["total_cells"] = cellsCount
 
 	// Total de features
 	var featuresCount int
-	db.QueryRowContext(ctx, `SELECT COUNT(*) FROM features_cell_hourly`).Scan(&featuresCount)
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM features_cell_hourly`).Scan(&featuresCount); err != nil {
+		kg.logger.Printf("⚠️  Erro ao contar features: %v", err)
+	}
 	metrics["total_features"] = featuresCount
 
 	// Persistir métricas

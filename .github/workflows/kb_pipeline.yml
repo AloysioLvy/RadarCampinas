@@ -22,9 +22,9 @@ on:
       - main
       - develop
     paths:
-      - 'internal/services/**'
-      - 'internal/database/migrations/**'
-      - '.github/workflows/knowledge-base-pipeline.yml'
+      - 'backend/internal/services/**'
+      - 'backend/internal/database/migrations/**'
+      - '.github/workflows/kb_pipeline.yml'
 
 env:
   GO_VERSION: '1.21'
@@ -73,18 +73,41 @@ jobs:
       
       - name: 🔍 Check SQL files exist
         run: |
-          if [ ! -f "internal/database/migrations/knowledge_base_schema.sql" ]; then
-            echo "❌ Migration file not found!"
+          if [ ! -f "backend/internal/database/migrations/knowledge_base_schema_mysql.sql" ]; then
+            echo "❌ MySQL migration file not found!"
             exit 1
           fi
-          echo "✅ Migration file found"
+          if [ ! -f "backend/internal/database/migrations/knowledge_base_schema.sql" ]; then
+            echo "❌ PostgreSQL migration file not found!"
+            exit 1
+          fi
+          echo "✅ Migration files found"
       
-      - name: 🔍 Basic SQL syntax check
+      - name: 🔍 Basic SQL syntax check (MySQL)
         run: |
-          # Verificar se há erros óbvios de sintaxe
-          grep -n "CREATE TABLE.*(" internal/database/migrations/knowledge_base_schema.sql || true
-          grep -n "CREATE SCHEMA" internal/database/migrations/knowledge_base_schema.sql || true
-          echo "✅ SQL syntax looks good"
+          echo "Validando sintaxe MySQL..."
+          # Verificar se há erros óbvios de sintaxe no arquivo MySQL
+          grep -n "CREATE TABLE" backend/internal/database/migrations/knowledge_base_schema_mysql.sql | head -5
+          grep -n "CREATE DATABASE" backend/internal/database/migrations/knowledge_base_schema_mysql.sql || true
+          
+          # Verificar se as tabelas principais existem
+          for table in "curated_incidents" "curated_cells" "external_holidays" "features_cell_hourly"; do
+            if grep -q "$table" backend/internal/database/migrations/knowledge_base_schema_mysql.sql; then
+              echo "✅ Tabela $table encontrada no MySQL schema"
+            else
+              echo "❌ Tabela $table NÃO encontrada no MySQL schema"
+              exit 1
+            fi
+          done
+          echo "✅ MySQL syntax looks good"
+      
+      - name: 🔍 Basic SQL syntax check (PostgreSQL)
+        run: |
+          echo "Validando sintaxe PostgreSQL..."
+          # Verificar se há erros óbvios de sintaxe no arquivo PostgreSQL
+          grep -n "CREATE TABLE" backend/internal/database/migrations/knowledge_base_schema.sql | head -5 || true
+          grep -n "CREATE SCHEMA" backend/internal/database/migrations/knowledge_base_schema.sql || true
+          echo "✅ PostgreSQL syntax looks good"
 
   security-scan:
     name: 🛡️ Security Scan
@@ -234,7 +257,7 @@ jobs:
       
       - name: 🗄️ Apply migrations
         run: |
-          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -f internal/database/migrations/knowledge_base_schema.sql
+          PGPASSWORD=testpass psql -h localhost -U postgres -d radar_test -f backend/internal/database/migrations/knowledge_base_schema.sql
       
       - name: ✅ Verify schemas
         run: |
@@ -333,7 +356,7 @@ jobs:
       - name: 🗄️ Setup databases
         run: |
           # Aplicar migrations no target DB
-          PGPASSWORD=${{ secrets.TARGET_DB_PASSWORD }} psql -h localhost -U postgres -d radar_campinas -f internal/database/migrations/knowledge_base_schema.sql
+          PGPASSWORD=${{ secrets.TARGET_DB_PASSWORD }} psql -h localhost -U postgres -d radar_campinas -f backend/internal/database/migrations/knowledge_base_schema.sql
           
           # Setup source DB com dados de exemplo (se necessário)
           # PGPASSWORD=${{ secrets.SOURCE_DB_PASSWORD }} psql -h localhost -p 5433 -U postgres -d source_db -f scripts/setup_source_db.sql || true
