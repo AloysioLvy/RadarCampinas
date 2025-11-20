@@ -6,7 +6,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/controllers"
@@ -22,7 +21,7 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Connect to database
+	// Connect to database (já está usando SQL Server via GORM)
 	db, err := database.Connect(cfg)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -33,27 +32,27 @@ func main() {
 		&models.Report{},
 		&models.Crime{},
 		&models.Neighborhood{},
-		
+
 		// Tabelas da Knowledge Base - Curated
 		&models.CuratedIncident{},
 		&models.CuratedCell{},
-		
+
 		// Tabelas da Knowledge Base - External
 		&models.ExternalHoliday{},
-		
+
 		// Tabelas da Knowledge Base - Features
 		&models.FeaturesCellHourly{},
-		
+
 		// Tabelas da Knowledge Base - Analytics
 		&models.AnalyticsQualityReport{},
 		&models.AnalyticsPipelineLog{},
-		
+
 		// Tabela de migrations
 		&models.SchemaMigration{},
 
 		// Predict Time
 		&models.PredictCrime{},
-		); err != nil {
+	); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 
@@ -63,9 +62,9 @@ func main() {
 	// Create controllers
 	reportCtrl := controllers.NewReportController(reportSvc)
 
-	// Configurar DSN para MySQL no Knowledge Base Controller
+	// DSN para SQL Server no Knowledge Base Controller
 	sourceDSN := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=America%%2FSao_Paulo",
+		"sqlserver://%s:%s@%s:%s?database=%s",
 		cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName,
 	)
 	targetDSN := sourceDSN // Mesmo banco para source e target

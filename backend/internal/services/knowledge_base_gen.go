@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type Crime struct {
@@ -115,7 +114,7 @@ func (kg *KnowledgeBaseGenerator) GenerateKnowledgeBase(ctx context.Context) err
 }
 
 // ============================================================================
-// FASE 1: MIGRAÇÃO DE DADOS HISTÓRICOS
+// FASE 1: MIGRAÇÃO DE DADOS HISTÓRICOS (COM BATCH INSERT)
 // ============================================================================
 
 func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context, db *sql.DB) error {
@@ -126,7 +125,7 @@ func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context, db 
 		FROM reports r
 		JOIN neighborhoods n ON r.neighborhood_id = n.neighborhood_id
 		JOIN crimes c ON r.crime_id = c.crime_id
-		WHERE r.report_date BETWEEN ? AND ?
+		WHERE r.report_date BETWEEN @p1 AND @p2
 		ORDER BY r.report_date
 	`
 
@@ -144,6 +143,12 @@ func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context, db 
 
 	processed := 0
 	skipped := 0
+	batchSize := kg.config.BatchSize
+	if batchSize <= 0 {
+		batchSize = 500
+	}
+
+	var batch []Report
 
 	for rows.Next() {
 		var report Report
@@ -165,74 +170,107 @@ func (kg *KnowledgeBaseGenerator) migrateHistoricalData(ctx context.Context, db 
 
 		report.Neighborhood = neighborhood
 		report.Crime = crime
+		batch = append(batch, report)
 
-		if err := kg.insertIncident(ctx, db, report); err != nil {
-			kg.logger.Printf("⚠️  Erro ao inserir report %d: %v", report.ReportID, err)
-			skipped++
-			continue
+		if len(batch) >= batchSize {
+			ok, fail := kg.insertIncidentsBatch(ctx, db, batch)
+			processed += ok
+			skipped += fail
+			batch = batch[:0]
+			kg.logger.Printf("  ➜ Processados %d registros (batch)...", processed)
 		}
+	}
 
-		processed++
-		if processed%100 == 0 {
-			kg.logger.Printf("  ➜ Processados %d registros...", processed)
-		}
+	if len(batch) > 0 {
+		ok, fail := kg.insertIncidentsBatch(ctx, db, batch)
+		processed += ok
+		skipped += fail
 	}
 
 	kg.logger.Printf("✅ Migração concluída: %d incidentes processados, %d ignorados", processed, skipped)
 	return nil
 }
 
-func (kg *KnowledgeBaseGenerator) insertIncident(ctx context.Context, db *sql.DB, report Report) error {
-	lat, err := strconv.ParseFloat(report.Neighborhood.Latitude, 64)
-	if err != nil {
-		return fmt.Errorf("latitude inválida: %v", err)
+// insertIncidentsBatch faz insert em lote de curated_incidents
+func (kg *KnowledgeBaseGenerator) insertIncidentsBatch(ctx context.Context, db *sql.DB, reports []Report) (processed int, skipped int) {
+	if len(reports) == 0 {
+		return 0, 0
 	}
 
-	lon, err := strconv.ParseFloat(report.Neighborhood.Longitude, 64)
-	if err != nil {
-		return fmt.Errorf("longitude inválida: %v", err)
-	}
+	valueStrings := []string{}
+	valueArgs := []interface{}{}
+	paramIndex := 1
 
-	// Validar coordenadas de Campinas
-	if lat < -23.1 || lat > -22.7 || lon < -47.3 || lon > -46.8 {
-		return fmt.Errorf("coordenadas fora de Campinas")
-	}
-
-	reportTime, err := time.Parse("2006-01-02", report.ReportDate)
-	if err != nil {
-		if reportTime, err = time.Parse("2006-01-02 15:04:05", report.ReportDate); err != nil {
-			return fmt.Errorf("formato de data inválido: %v", err)
+	for _, report := range reports {
+		lat, err := strconv.ParseFloat(report.Neighborhood.Latitude, 64)
+		if err != nil {
+			skipped++
+			continue
 		}
+		lon, err := strconv.ParseFloat(report.Neighborhood.Longitude, 64)
+		if err != nil {
+			skipped++
+			continue
+		}
+
+		if lat < -23.1 || lat > -22.7 || lon < -47.3 || lon > -46.8 {
+			skipped++
+			continue
+		}
+
+		reportTime, err := time.Parse("2006-01-02", report.ReportDate)
+		if err != nil {
+			if reportTime, err = time.Parse("2006-01-02 15:04:05", report.ReportDate); err != nil {
+				skipped++
+				continue
+			}
+		}
+
+		category := kg.mapCrimeCategory(report.Crime.CrimeName)
+		severity := report.Crime.CrimeWeight
+		confidence := kg.calculateConfidence(report)
+		incidentID := fmt.Sprintf("rpt_%d", report.ReportID)
+
+		valueStrings = append(valueStrings, fmt.Sprintf(
+			"(@p%d, @p%d, @p%d, @p%d, @p%d, @p%d, @p%d, @p%d, @p%d)",
+			paramIndex, paramIndex+1, paramIndex+2, paramIndex+3,
+			paramIndex+4, paramIndex+5, paramIndex+6, paramIndex+7, paramIndex+8,
+		))
+
+		valueArgs = append(valueArgs,
+			incidentID,
+			reportTime,
+			category,
+			severity,
+			lat,
+			lon,
+			report.Neighborhood.Name,
+			confidence,
+			"legacy_reports",
+		)
+
+		paramIndex += 9
+		processed++
 	}
 
-	category := kg.mapCrimeCategory(report.Crime.CrimeName)
-	severity := report.Crime.CrimeWeight
-	confidence := kg.calculateConfidence(report)
+	if len(valueStrings) == 0 {
+		return 0, skipped
+	}
 
-	query := `
+	query := fmt.Sprintf(`
 		INSERT INTO curated_incidents 
 		(id, occurred_at, category, severity, latitude, longitude, neighborhood, confidence, source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE
-			occurred_at = VALUES(occurred_at),
-			category = VALUES(category),
-			severity = VALUES(severity),
-			confidence = VALUES(confidence)
-	`
+		VALUES %s
+	`, strings.Join(valueStrings, ","))
 
-	_, err = db.ExecContext(ctx, query,
-		fmt.Sprintf("rpt_%d", report.ReportID),
-		reportTime,
-		category,
-		severity,
-		lat,
-		lon,
-		report.Neighborhood.Name,
-		confidence,
-		"legacy_reports",
-	)
+	if _, err := db.ExecContext(ctx, query, valueArgs...); err != nil {
+		kg.logger.Printf("⚠️  Erro no batch insert de incidents: %v", err)
+		// Se der erro, conta todos do batch como ignorados
+		skipped += processed
+		processed = 0
+	}
 
-	return err
+	return processed, skipped
 }
 
 func (kg *KnowledgeBaseGenerator) mapCrimeCategory(crimeName string) string {
@@ -295,15 +333,20 @@ func (kg *KnowledgeBaseGenerator) generateSpatialGrid(ctx context.Context, db *s
 			centerLat := lat + cellSizeDegrees/2
 			centerLon := lon + cellSizeDegrees/2
 
-			query := `
-				INSERT INTO curated_cells 
-				(cell_id, cell_resolution, city, center_lat, center_lng)
-				VALUES (?, ?, ?, ?, ?)
-				ON DUPLICATE KEY UPDATE cell_id = cell_id
+			cellIDStr := fmt.Sprintf("CAMP-%d-%d", kg.config.CellResolution, cellID)
+
+			insertQuery := `
+				IF NOT EXISTS (SELECT 1 FROM curated_cells WHERE cell_id = @p1)
+				BEGIN
+					INSERT INTO curated_cells 
+					(cell_id, cell_resolution, city, center_lat, center_lng)
+					VALUES (@p2, @p3, @p4, @p5, @p6)
+				END
 			`
 
-			_, err := db.ExecContext(ctx, query,
-				fmt.Sprintf("CAMP-%d-%d", kg.config.CellResolution, cellID),
+			_, err := db.ExecContext(ctx, insertQuery,
+				cellIDStr,
+				cellIDStr,
 				kg.config.CellResolution,
 				"Campinas",
 				centerLat,
@@ -327,8 +370,7 @@ func (kg *KnowledgeBaseGenerator) generateSpatialGrid(ctx context.Context, db *s
 // ============================================================================
 
 func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db *sql.DB) error {
-	// Buscar todas as células
-	cellsQuery := `SELECT cell_id, center_lat, center_lng FROM curated_cells WHERE cell_resolution = ?`
+	cellsQuery := `SELECT cell_id, center_lat, center_lng FROM curated_cells WHERE cell_resolution = @p1`
 	cellRows, err := db.QueryContext(ctx, cellsQuery, kg.config.CellResolution)
 	if err != nil {
 		return err
@@ -345,7 +387,7 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 		CenterLng float64
 	}
 
-	cells := []Cell{}
+	var cells []Cell
 	for cellRows.Next() {
 		var c Cell
 		if err := cellRows.Scan(&c.ID, &c.CenterLat, &c.CenterLng); err != nil {
@@ -354,7 +396,6 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 		cells = append(cells, c)
 	}
 
-	// Buscar incidentes sem célula
 	incidentsQuery := `SELECT id, latitude, longitude FROM curated_incidents WHERE cell_id IS NULL`
 	incidentRows, err := db.QueryContext(ctx, incidentsQuery)
 	if err != nil {
@@ -377,12 +418,11 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 			continue
 		}
 
-		// Encontrar célula mais próxima
 		for _, cell := range cells {
 			if lat >= cell.CenterLat-cellSizeDegrees/2 && lat < cell.CenterLat+cellSizeDegrees/2 &&
 				lon >= cell.CenterLng-cellSizeDegrees/2 && lon < cell.CenterLng+cellSizeDegrees/2 {
 
-				updateQuery := `UPDATE curated_incidents SET cell_id = ?, cell_resolution = ? WHERE id = ?`
+				updateQuery := `UPDATE curated_incidents SET cell_id = @p1, cell_resolution = @p2 WHERE id = @p3`
 				_, err := db.ExecContext(ctx, updateQuery, cell.ID, kg.config.CellResolution, incidentID)
 				if err == nil {
 					updated++
@@ -399,30 +439,160 @@ func (kg *KnowledgeBaseGenerator) assignCellsToIncidents(ctx context.Context, db
 // ============================================================================
 // FASE 4: FEATURES TEMPORAIS
 // ============================================================================
+func (kg *KnowledgeBaseGenerator) generateFeaturesForRange(ctx context.Context, db *sql.DB, rangeStart, rangeEnd time.Time) error {
+	query := `
+	;WITH Hours AS (
+		-- Gera todas as horas entre @start e @end
+		SELECT DATEADD(hour, n, @start) AS ts
+		FROM (
+			SELECT TOP (DATEDIFF(hour, @start, @end))
+				ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS n
+			FROM sys.all_objects
+		) AS t
+	),
+	Cells AS (
+		SELECT cell_id, center_lat, center_lng
+		FROM curated_cells
+		WHERE cell_resolution = @cellRes
+	),
+	CellHours AS (
+		-- Produto cartesiano de células x horas
+		SELECT c.cell_id, h.ts
+		FROM Cells c
+		CROSS JOIN Hours h
+	),
+	BaseIncidents AS (
+		-- Incidentes no range estendido para calcular lags
+		SELECT 
+			cell_id,
+			occurred_at
+		FROM curated_incidents
+		WHERE occurred_at >= DATEADD(day, -7, @start)
+		  AND occurred_at < @end
+	),
+	Aggregated AS (
+		SELECT
+			ch.cell_id,
+			ch.ts,
 
-func (kg *KnowledgeBaseGenerator) generateTemporalFeatures(ctx context.Context, db *sql.DB) error {
-	current := kg.config.StartDate
-	hoursProcessed := 0
+			-- y_count: ocorrências na própria hora
+			SUM(CASE 
+					WHEN bi.occurred_at >= ch.ts
+					 AND bi.occurred_at < DATEADD(hour, 1, ch.ts)
+					THEN 1 ELSE 0 END
+			) AS y_count,
 
-	for current.Before(kg.config.EndDate) {
-		if err := kg.generateHourlyFeatures(ctx, db, current); err != nil {
-			kg.logger.Printf("⚠️  Erro ao processar hora %s: %v", current, err)
-		}
-		hoursProcessed++
-		current = current.Add(time.Hour)
+			-- lag_1h: ocorrências na hora anterior
+			SUM(CASE 
+					WHEN bi.occurred_at >= DATEADD(hour, -1, ch.ts)
+					 AND bi.occurred_at < ch.ts
+					THEN 1 ELSE 0 END
+			) AS lag_1h,
 
-		if hoursProcessed%100 == 0 {
-			kg.logger.Printf("  ➜ Processadas %d horas...", hoursProcessed)
-		}
+			-- lag_24h: últimas 24h
+			SUM(CASE 
+					WHEN bi.occurred_at >= DATEADD(hour, -24, ch.ts)
+					 AND bi.occurred_at < ch.ts
+					THEN 1 ELSE 0 END
+			) AS lag_24h,
+
+			-- lag_7d: últimos 7 dias
+			SUM(CASE 
+					WHEN bi.occurred_at >= DATEADD(day, -7, ch.ts)
+					 AND bi.occurred_at < ch.ts
+					THEN 1 ELSE 0 END
+			) AS lag_7d
+		FROM CellHours ch
+		LEFT JOIN BaseIncidents bi
+			ON bi.cell_id = ch.cell_id
+		   AND bi.occurred_at >= DATEADD(day, -7, ch.ts)
+		   AND bi.occurred_at < DATEADD(hour, 1, ch.ts)
+		GROUP BY ch.cell_id, ch.ts
+	),
+	WithCalendar AS (
+		SELECT
+			a.cell_id,
+			a.ts,
+			a.y_count,
+			a.lag_1h,
+			a.lag_24h,
+			a.lag_7d,
+			DATEPART(dw, a.ts) - 1 AS dow, -- 0=domingo
+			DATEPART(hour, a.ts) AS hour,
+			CASE WHEN eh.date IS NULL THEN 0 ELSE 1 END AS holiday,
+			CASE WHEN DATEPART(dw, a.ts) IN (1, 7) THEN 1 ELSE 0 END AS is_weekend,
+			CASE WHEN DATEPART(hour, a.ts) BETWEEN 8 AND 18 THEN 1 ELSE 0 END AS is_business_hours
+		FROM Aggregated a
+		LEFT JOIN external_holidays eh
+			ON eh.date = CAST(a.ts AS date)
+	)
+	-- INSERT ou UPDATE em features_cell_hourly em batch
+	MERGE features_cell_hourly AS target
+	USING WithCalendar AS source
+		ON target.cell_id = source.cell_id
+	   AND target.ts = source.ts
+	WHEN MATCHED THEN
+		UPDATE SET
+			y_count = source.y_count,
+			lag_1h = source.lag_1h,
+			lag_24h = source.lag_24h,
+			lag_7d = source.lag_7d,
+			dow = source.dow,
+			hour = source.hour,
+			holiday = source.holiday,
+			is_weekend = source.is_weekend,
+			is_business_hours = source.is_business_hours
+	WHEN NOT MATCHED BY TARGET THEN
+		INSERT (cell_id, ts, y_count, lag_1h, lag_24h, lag_7d, dow, hour, holiday, is_weekend, is_business_hours)
+		VALUES (source.cell_id, source.ts, source.y_count, source.lag_1h, source.lag_24h, source.lag_7d,
+				source.dow, source.hour, source.holiday, source.is_weekend, source.is_business_hours);
+	`
+
+	_, err := db.ExecContext(ctx, query,
+		sql.Named("start", rangeStart),
+		sql.Named("end", rangeEnd),
+		sql.Named("cellRes", kg.config.CellResolution),
+	)
+	if err != nil {
+		return fmt.Errorf("erro ao gerar features para range %s - %s: %w",
+			rangeStart.Format(time.RFC3339), rangeEnd.Format(time.RFC3339), err)
 	}
 
-	kg.logger.Printf("✅ Features temporais geradas: %d horas processadas", hoursProcessed)
+	return nil
+}
+func (kg *KnowledgeBaseGenerator) generateTemporalFeatures(ctx context.Context, db *sql.DB) error {
+	start := kg.config.StartDate
+	end := kg.config.EndDate
+
+	// Processar em blocos de 1 dia
+	day := start
+	daysProcessed := 0
+
+	for day.Before(end) {
+		dayEnd := day.Add(24 * time.Hour)
+		if dayEnd.After(end) {
+			dayEnd = end
+		}
+
+		startBlock := time.Now()
+		if err := kg.generateFeaturesForRange(ctx, db, day, dayEnd); err != nil {
+			kg.logger.Printf("⚠️  Erro ao processar dia %s: %v", day.Format("2006-01-02"), err)
+		}
+
+		daysProcessed++
+		kg.logger.Printf("  ➜ Dia %s processado em %s (total dias: %d)",
+			day.Format("2006-01-02"), time.Since(startBlock), daysProcessed)
+
+		day = dayEnd
+	}
+
+	kg.logger.Printf("✅ Features temporais geradas para %d dias", daysProcessed)
 	return nil
 }
 
+
 func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db *sql.DB, timestamp time.Time) error {
-	// Buscar todas as células
-	cellsQuery := `SELECT cell_id FROM curated_cells WHERE cell_resolution = ?`
+	cellsQuery := `SELECT cell_id FROM curated_cells WHERE cell_resolution = @p1`
 	rows, err := db.QueryContext(ctx, cellsQuery, kg.config.CellResolution)
 	if err != nil {
 		return err
@@ -441,39 +611,42 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 			continue
 		}
 
-		// Contar crimes nessa hora
 		var yCount int
 		countQuery := `
 			SELECT COUNT(*) FROM curated_incidents 
-			WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?
+			WHERE cell_id = @p1 AND occurred_at >= @p2 AND occurred_at < @p3
 		`
 		if err := db.QueryRowContext(ctx, countQuery, cellID, timestamp, endHour).Scan(&yCount); err != nil {
 			kg.logger.Printf("⚠️  Erro ao contar crimes: %v", err)
 			continue
 		}
 
-		// Calcular lags
 		lag1h := timestamp.Add(-time.Hour)
 		lag24h := timestamp.Add(-24 * time.Hour)
 		lag7d := timestamp.Add(-7 * 24 * time.Hour)
 
 		var lag1hCount, lag24hCount, lag7dCount int
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+
+		if err := db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM curated_incidents WHERE cell_id = @p1 AND occurred_at >= @p2 AND occurred_at < @p3`,
 			cellID, lag1h, timestamp).Scan(&lag1hCount); err != nil {
 			kg.logger.Printf("⚠️  Erro ao calcular lag 1h: %v", err)
 		}
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+		if err := db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM curated_incidents WHERE cell_id = @p1 AND occurred_at >= @p2 AND occurred_at < @p3`,
 			cellID, lag24h, timestamp).Scan(&lag24hCount); err != nil {
 			kg.logger.Printf("⚠️  Erro ao calcular lag 24h: %v", err)
 		}
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents WHERE cell_id = ? AND occurred_at >= ? AND occurred_at < ?`,
+		if err := db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM curated_incidents WHERE cell_id = @p1 AND occurred_at >= @p2 AND occurred_at < @p3`,
 			cellID, lag7d, timestamp).Scan(&lag7dCount); err != nil {
 			kg.logger.Printf("⚠️  Erro ao calcular lag 7d: %v", err)
 		}
 
-		// Verificar feriado
 		var isHoliday bool
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) > 0 FROM external_holidays WHERE date = ?`, timestamp.Format("2006-01-02")).Scan(&isHoliday); err != nil {
+		if err := db.QueryRowContext(ctx,
+			`SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM external_holidays WHERE date = @p1`,
+			timestamp.Format("2006-01-02")).Scan(&isHoliday); err != nil {
 			kg.logger.Printf("⚠️  Erro ao verificar feriado: %v", err)
 		}
 
@@ -482,24 +655,28 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 		isWeekend := dow == 0 || dow == 6
 		isBusinessHours := hour >= 8 && hour <= 18
 
-		// Inserir feature
 		insertQuery := `
 			INSERT INTO features_cell_hourly 
 			(cell_id, ts, y_count, lag_1h, lag_24h, lag_7d, dow, hour, holiday, is_weekend, is_business_hours)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON DUPLICATE KEY UPDATE
-				y_count = VALUES(y_count),
-				lag_1h = VALUES(lag_1h),
-				lag_24h = VALUES(lag_24h),
-				lag_7d = VALUES(lag_7d)
+			VALUES (@p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11)
 		`
 
 		_, err := db.ExecContext(ctx, insertQuery,
 			cellID, timestamp, yCount, lag1hCount, lag24hCount, lag7dCount,
 			dow, hour, isHoliday, isWeekend, isBusinessHours)
 
+		if err != nil && strings.Contains(err.Error(), "2627") {
+			updateQuery := `
+				UPDATE features_cell_hourly 
+				SET y_count = @p1, lag_1h = @p2, lag_24h = @p3, lag_7d = @p4
+				WHERE cell_id = @p5 AND ts = @p6
+			`
+			_, err = db.ExecContext(ctx, updateQuery,
+				yCount, lag1hCount, lag24hCount, lag7dCount, cellID, timestamp)
+		}
+
 		if err != nil {
-			kg.logger.Printf("⚠️  Erro ao inserir feature: %v", err)
+			kg.logger.Printf("⚠️  Erro ao inserir/atualizar feature: %v", err)
 		}
 	}
 
@@ -513,34 +690,40 @@ func (kg *KnowledgeBaseGenerator) generateHourlyFeatures(ctx context.Context, db
 func (kg *KnowledgeBaseGenerator) validateDataQuality(ctx context.Context, db *sql.DB) error {
 	metrics := make(map[string]interface{})
 
-	// Total de incidentes
 	var incidentsCount int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_incidents`).Scan(&incidentsCount); err != nil {
 		kg.logger.Printf("⚠️  Erro ao contar incidentes: %v", err)
 	}
 	metrics["total_incidents"] = incidentsCount
 
-	// Total de células
 	var cellsCount int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM curated_cells`).Scan(&cellsCount); err != nil {
 		kg.logger.Printf("⚠️  Erro ao contar células: %v", err)
 	}
 	metrics["total_cells"] = cellsCount
 
-	// Total de features
 	var featuresCount int
 	if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM features_cell_hourly`).Scan(&featuresCount); err != nil {
 		kg.logger.Printf("⚠️  Erro ao contar features: %v", err)
 	}
 	metrics["total_features"] = featuresCount
 
-	// Persistir métricas
 	metricsJSON, _ := json.Marshal(metrics)
-	_, err := db.ExecContext(ctx, `
+
+	insertQuery := `
 		INSERT INTO analytics_quality_reports (report_date, metrics)
-		VALUES (CURDATE(), ?)
-		ON DUPLICATE KEY UPDATE metrics = VALUES(metrics)
-	`, string(metricsJSON))
+		VALUES (CAST(GETDATE() AS DATE), @p1)
+	`
+	_, err := db.ExecContext(ctx, insertQuery, string(metricsJSON))
+
+	if err != nil && strings.Contains(err.Error(), "2627") {
+		updateQuery := `
+			UPDATE analytics_quality_reports 
+			SET metrics = @p1
+			WHERE report_date = CAST(GETDATE() AS DATE)
+		`
+		_, err = db.ExecContext(ctx, updateQuery, string(metricsJSON))
+	}
 
 	kg.logger.Printf("📊 Métricas de qualidade:")
 	kg.logger.Printf("   • Total de incidentes: %d", incidentsCount)

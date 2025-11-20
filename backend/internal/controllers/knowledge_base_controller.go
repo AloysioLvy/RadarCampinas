@@ -8,8 +8,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/labstack/echo/v4"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/services"
@@ -40,14 +38,14 @@ func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context)
 	background := context.Background()
 
 	// Parse query parameters (opcional)
-	cellResolution := 500 // padrão
+	cellResolution := 1000 // padrão
 	if res := ctx.QueryParam("cell_resolution"); res != "" {
 		if parsed, err := strconv.Atoi(res); err == nil && (parsed == 500 || parsed == 1000) {
 			cellResolution = parsed
 		}
 	}
 
-	daysBack := 365 // padrão: 1 ano
+	daysBack := 7 // padrão: 1 ano
 	if days := ctx.QueryParam("days_back"); days != "" {
 		if parsed, err := strconv.Atoi(days); err == nil && parsed > 0 {
 			daysBack = parsed
@@ -56,9 +54,9 @@ func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context)
 
 	c.Logger.Printf("⚙️  Parâmetros: cell_resolution=%dm, days_back=%d", cellResolution, daysBack)
 
-	// Conectar no Source DB (MySQL)
-	c.Logger.Println("🔌 Conectando ao Source Database (MySQL)...")
-	sourceDB, err := sql.Open("mysql", c.SourceDSN)
+	// Conectar no Source DB (SQL Server)
+	c.Logger.Println("🔌 Conectando ao Source Database (SQL Server)...")
+	sourceDB, err := sql.Open("sqlserver", c.SourceDSN)
 	if err != nil {
 		c.Logger.Printf("❌ Erro ao conectar no Source DB: %v", err)
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
@@ -82,9 +80,9 @@ func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context)
 	}
 	c.Logger.Println("✅ Source DB conectado")
 
-	// Conectar no Target DB (MySQL - mesmo banco)
-	c.Logger.Println("🔌 Conectando ao Target Database (MySQL)...")
-	targetDB, err := sql.Open("mysql", c.TargetDSN)
+	// Conectar no Target DB (SQL Server - mesmo banco)
+	c.Logger.Println("🔌 Conectando ao Target Database (SQL Server)...")
+	targetDB, err := sql.Open("sqlserver", c.TargetDSN)
 	if err != nil {
 		c.Logger.Printf("❌ Erro ao conectar no Target DB: %v", err)
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
@@ -157,8 +155,8 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 
 	checks := health["checks"].(echo.Map)
 
-	// Check Source DB (MySQL)
-	sourceDB, err := sql.Open("mysql", c.SourceDSN)
+	// Check Source DB (SQL Server)
+	sourceDB, err := sql.Open("sqlserver", c.SourceDSN)
 	if err == nil {
 		defer func() {
 			if err := sourceDB.Close(); err != nil {
@@ -168,7 +166,7 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 		if err := sourceDB.Ping(); err == nil {
 			checks["source_db"] = echo.Map{
 				"status":  "ok",
-				"message": "Source database (MySQL) is accessible",
+				"message": "Source database (SQL Server) is accessible",
 			}
 		} else {
 			checks["source_db"] = echo.Map{
@@ -185,8 +183,8 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 		health["status"] = "degraded"
 	}
 
-	// Check Target DB (MySQL)
-	targetDB, err := sql.Open("mysql", c.TargetDSN)
+	// Check Target DB (SQL Server)
+	targetDB, err := sql.Open("sqlserver", c.TargetDSN)
 	if err == nil {
 		defer func() {
 			if err := targetDB.Close(); err != nil {
@@ -198,9 +196,8 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 			var tableCount int
 			query := `
 				SELECT COUNT(*) 
-				FROM information_schema.TABLES 
-				WHERE TABLE_SCHEMA = 'BD24452'
-				AND (TABLE_NAME LIKE 'curated_%' 
+				FROM INFORMATION_SCHEMA.TABLES 
+				WHERE (TABLE_NAME LIKE 'curated_%' 
 					OR TABLE_NAME LIKE 'external_%'
 					OR TABLE_NAME LIKE 'features_%'
 					OR TABLE_NAME LIKE 'analytics_%')
@@ -210,7 +207,7 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 			if err == nil && tableCount >= 8 {
 				checks["target_db"] = echo.Map{
 					"status":  "ok",
-					"message": "Target database (MySQL) is accessible and tables exist",
+					"message": "Target database (SQL Server) is accessible and tables exist",
 					"tables":  tableCount,
 				}
 			} else if err == nil {
@@ -253,7 +250,7 @@ func (c *KnowledgeBaseController) HealthCheckHandler(ctx echo.Context) error {
 
 // StatusHandler retorna estatísticas da base de conhecimento
 func (c *KnowledgeBaseController) StatusHandler(ctx echo.Context) error {
-	targetDB, err := sql.Open("mysql", c.TargetDSN)
+	targetDB, err := sql.Open("sqlserver", c.TargetDSN)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, echo.Map{
 			"error": "Não foi possível conectar ao Target DB",
@@ -300,10 +297,9 @@ func (c *KnowledgeBaseController) StatusHandler(ctx echo.Context) error {
 	var lastExecution time.Time
 	var lastStatus string
 	query := `
-		SELECT started_at, status 
+		SELECT TOP 1 started_at, status 
 		FROM analytics_pipeline_logs 
-		ORDER BY started_at DESC 
-		LIMIT 1
+		ORDER BY started_at DESC
 	`
 	err = targetDB.QueryRow(query).Scan(&lastExecution, &lastStatus)
 	if err != nil {
@@ -318,10 +314,9 @@ func (c *KnowledgeBaseController) StatusHandler(ctx echo.Context) error {
 	// Última métrica de qualidade
 	var lastReport string
 	query = `
-		SELECT metrics 
+		SELECT TOP 1 metrics 
 		FROM analytics_quality_reports 
-		ORDER BY report_date DESC 
-		LIMIT 1
+		ORDER BY report_date DESC
 	`
 	err = targetDB.QueryRow(query).Scan(&lastReport)
 	if err != nil {
@@ -340,7 +335,7 @@ func (c *KnowledgeBaseController) StatusHandler(ctx echo.Context) error {
 // Register registra as rotas no Echo API group
 func (c *KnowledgeBaseController) Register(g *echo.Group) {
 	// Rota principal: gerar base de conhecimento
-	g.POST("/knowledge-base/generate", c.GenerateKnowledgeBaseHandler) // ← CORRIGIDO
+	g.POST("/knowledge-base/generate", c.GenerateKnowledgeBaseHandler)
 
 	// Health check: verificar saúde do sistema
 	g.GET("/knowledge-base/health", c.HealthCheckHandler)
