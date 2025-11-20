@@ -149,7 +149,7 @@ jobs:
       
       - name: 🏗️ Build binary
         run: |
-          go build -v -o radar-campinas-kb ./cmd/server
+          go build -v -o radar-campinas-kb ./backend/cmd/server
           ls -lh radar-campinas-kb
       
       - name: 📤 Upload artifact
@@ -409,4 +409,4 @@ jobs:
         run: |
           echo "❌ Pipeline falhou!"
           echo "🔍 Verifique os logs para mais detalhes"
-          # Adicionar notificação Slack/Discord/Email aqui
+          
