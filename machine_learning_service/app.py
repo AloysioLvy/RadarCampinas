@@ -45,7 +45,12 @@ def train_model():
 
     # Salvar previsões no banco
     try:
-        save_predictions(predict_df)
+        predict_agg = (
+            predict_df
+            .groupby("neighborhood", as_index=False)
+            .agg({"risk_level": "max"})  # ou "mean"
+        )
+        save_predictions(predict_agg)
         logging.info(f"{len(predict_df)} previsões salvas no banco")
     except Exception as e:
         logging.error(f"Erro ao salvar previsões: {e}")

@@ -33,25 +33,29 @@ def get_base_knowledge(days_back=90):
         cutoff_date = (datetime.datetime.now() - datetime.timedelta(days=days_back)).strftime('%Y-%m-%d')
         
         query = f"""
-                SELECT 
-                    fch.cell_id,
-                    CAST(fch.ts AS DATETIME) as ts,  -- <-- converte para DATETIME
-                    fch.y_count,
-                    fch.lag_1h,
-                    fch.lag_24h,
-                    fch.lag_7d,
-                    fch.dow,
-                    fch.hour,
-                    CAST(fch.holiday AS INT) as holiday,
-                    CAST(fch.is_weekend AS INT) as is_weekend,
-                    CAST(fch.is_business_hours AS INT) as is_business_hours,
-                    cc.center_lat,
-                    cc.center_lng
-                FROM features_cell_hourly fch
-                INNER JOIN curated_cells cc ON fch.cell_id = cc.cell_id
-                WHERE fch.ts >= '{cutoff_date}'
-                ORDER BY fch.ts, fch.cell_id
-            """
+            SELECT 
+                fch.cell_id,
+                cn.neighborhood,  -- bairro associado à célula
+                CAST(fch.ts AS DATETIME) as ts,
+                fch.y_count,
+                fch.lag_1h,
+                fch.lag_24h,
+                fch.lag_7d,
+                fch.dow,
+                fch.hour,
+                CAST(fch.holiday AS INT) as holiday,
+                CAST(fch.is_weekend AS INT) as is_weekend,
+                CAST(fch.is_business_hours AS INT) as is_business_hours,
+                cc.center_lat,
+                cc.center_lng
+            FROM features_cell_hourly fch
+            INNER JOIN curated_cells cc 
+                ON fch.cell_id = cc.cell_id
+            LEFT JOIN cell_neighborhoods cn
+                ON cn.cell_id = fch.cell_id
+            WHERE fch.ts >= '{cutoff_date}'
+            ORDER BY fch.ts, fch.cell_id
+        """
         
         df = pd.read_sql(query, conn)
         logging.info(f"✅ Carregados {len(df)} registros da base de conhecimento")
