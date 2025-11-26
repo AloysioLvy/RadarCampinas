@@ -29,6 +29,7 @@ func main() {
 
 	// Auto-migrate database schemas
 	if err := db.AutoMigrate(
+		
 		&models.Report{},
 		&models.Crime{},
 		&models.Neighborhood{},

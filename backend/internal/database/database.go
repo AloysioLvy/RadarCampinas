@@ -23,6 +23,7 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 
 	db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true, // 👈 ESSENCIAL
 	})
 
 	if err != nil {

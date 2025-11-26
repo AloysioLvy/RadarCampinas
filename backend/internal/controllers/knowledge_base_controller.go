@@ -45,7 +45,7 @@ func (c *KnowledgeBaseController) GenerateKnowledgeBaseHandler(ctx echo.Context)
 		}
 	}
 
-	daysBack := 7 // padrão: 1 ano
+	daysBack := 1425  // padrão: 3 anos
 	if days := ctx.QueryParam("days_back"); days != "" {
 		if parsed, err := strconv.Atoi(days); err == nil && parsed > 0 {
 			daysBack = parsed
