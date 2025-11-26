@@ -6,13 +6,12 @@ import (
 	"log"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/database/migrations"
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/denisenkom/go-mssqldb"
 )
 
 func main() {
-	// Conectar ao MySQL
-	dsn := "BD24452:BD24452@tcp(regulus.cotuca.unicamp.br:3306)/BD24452?charset=utf8mb4&parseTime=True&loc=America%2FSao_Paulo"
-	db, err := sql.Open("mysql", dsn)
+	dsn := "sqlserver://BD24452:BD24452@regulus.cotuca.unicamp.br:1433?database=BD24452"
+	db, err := sql.Open("sqlserver", dsn)
 	if err != nil {
 		log.Fatal("Erro ao conectar ao banco:", err)
 	}
@@ -22,15 +21,14 @@ func main() {
 		}
 	}()
 
-	// Testar conexão
 	if err := db.Ping(); err != nil {
 		log.Fatal("Erro ao pingar o banco:", err)
 	}
 
-	fmt.Println("✅ Conectado ao MySQL com sucesso!")
+	fmt.Println("✅ Conectado ao SQL Server com sucesso!")
 
 	// Ler o arquivo SQL do embed
-	sqlBytes, err := migrations.Files.ReadFile("knowledge_base_schema_mysql.sql")
+	sqlBytes, err := migrations.Files.ReadFile("knowledge_base_schema_sqlserver.sql")
 	if err != nil {
 		log.Fatal("Erro ao ler arquivo SQL embutido:", err)
 	}

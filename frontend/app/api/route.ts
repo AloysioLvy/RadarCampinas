@@ -32,7 +32,7 @@ Pergunte: "Está correto? (responda sim ou não)"
 
 Se o usuário responder "não", reinicie o processo de coleta.
 `;
-
+console.log(process.env.BACKEND_ROUTE_URL)
 const HeinousCrimes = [
       "latrocínio",
       "homicídio qualificado",
@@ -98,12 +98,12 @@ async function geocodeAddress(address: string) {
 }
   
 export async function POST(req: Request) {
-    const rate = await checkRateLimit(req);
+ const rate = await checkRateLimit(req);
     if (rate instanceof NextResponse) {
           return NextResponse.json(
         { error: "too many request " },
         { status: 429 }); 
-}
+}   
   try {
     
     const { messages } = await req.json();
@@ -145,16 +145,18 @@ export async function POST(req: Request) {
     if (finalData && finalData.localizacao != null) {
       const crime_weight = calculateWeightCrime(finalData.tipo_de_crime);
       const locationInfo = await geocodeAddress(finalData.localizacao);
+      
 
-
+      console.log("MONTOU O PAYLOAD")
       const payload = {
-        crimeType: finalData.tipo_de_crime,
-        crimeWeight: crime_weight,
+        crime_name: finalData.tipo_de_crime,
+        crime_weight: crime_weight,
         latitude: locationInfo?.latitude || null,
         longitude: locationInfo?.longitude || null,
-        location: locationInfo?.neighborhoodName||null,
-        crimeData: finalData.data_crime
+        name: locationInfo?.neighborhoodName||null,
+        report_date: finalData.data_crime
       }
+      console.log(payload)
     
       try {
         if(!process.env.BACKEND_ROUTE_URL){
@@ -187,6 +189,7 @@ export async function POST(req: Request) {
           const locationLine = locationMatch[0]; 
           const locationName = String(locationMatch [1]).trim();
           const locationInfo = await geocodeAddress(locationName);  
+          console.log(locationInfo)
           const enrichedLocation = `Região: ${locationInfo?.neighborhoodName}, ${locationInfo?.cityName}`;
           const enrichedResult = result.replace(locationLine, enrichedLocation);
           return NextResponse.json({result: enrichedResult,

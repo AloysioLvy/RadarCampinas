@@ -42,21 +42,29 @@ func (s *reportService) CreateReport(ctx context.Context, r *models.Report) erro
 }
 
 func (s *reportService) FindOrCreateNeighborhood(ctx context.Context, n *models.Neighborhood) (uint, error) {
-	// Check if a neighborhood with these coordinates already exists
 	var existingNeighborhood models.Neighborhood
 	result := s.db.Where("latitude = ? AND longitude = ?", n.Latitude, n.Longitude).First(&existingNeighborhood)
 
 	if result.Error == nil {
-		// Neighborhood found, return the ID
+		// Bairro encontrado → SOMAR o peso
+		existingNeighborhood.NeighborhoodWeight += n.NeighborhoodWeight
+
+		// Atualizar no banco
+		if err := s.db.WithContext(ctx).
+			Model(&existingNeighborhood).
+			Update("neighborhood_weight", existingNeighborhood.NeighborhoodWeight).Error; err != nil {
+
+			return 0, err
+		}
+
 		return existingNeighborhood.NeighborhoodID, nil
 	}
 
 	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-		// Database error
 		return 0, result.Error
 	}
 
-	// Neighborhood not found, create a new one
+	// Bairro não encontrado → criar um novo
 	if err := s.db.WithContext(ctx).Create(n).Error; err != nil {
 		return 0, err
 	}

@@ -28,14 +28,18 @@ func (CuratedIncident) TableName() string {
 }
 
 // CuratedCell representa uma célula da grade espacial
+// CuratedCell representa uma célula da grade espacial
 type CuratedCell struct {
 	CellID         string    `json:"cell_id" gorm:"primaryKey;column:cell_id;size:50"`
 	CellResolution int       `json:"cell_resolution" gorm:"column:cell_resolution;not null;index"`
 	City           string    `json:"city" gorm:"column:city;size:50;default:'Campinas';index"`
 	CenterLat      float64   `json:"center_lat" gorm:"column:center_lat;type:decimal(10,8);not null;index:idx_center"`
 	CenterLng      float64   `json:"center_lng" gorm:"column:center_lng;type:decimal(11,8);not null;index:idx_center"`
-	BoundsJSON     *string   `json:"bounds_json" gorm:"column:bounds_json;type:json"`
-	CreatedAt      time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	// Guardar JSON como string em nvarchar(max) no SQL Server
+	BoundsJSON *string `json:"bounds_json" gorm:"column:bounds_json;type:nvarchar(max)"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
 func (CuratedCell) TableName() string {
@@ -112,18 +116,22 @@ func (FeaturesCellHourly) TableName() string {
 // ============================================================================
 
 // AnalyticsQualityReport representa um relatório de qualidade
+// AnalyticsQualityReport representa um relatório de qualidade
 type AnalyticsQualityReport struct {
 	ID         uint      `json:"id" gorm:"primaryKey;autoIncrement;column:id"`
 	ReportDate time.Time `json:"report_date" gorm:"column:report_date;type:date;uniqueIndex;not null"`
-	Metrics    string    `json:"metrics" gorm:"column:metrics;type:json;not null"`
-	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`
-}
 
+	// Trocar type:json por nvarchar(max)
+	Metrics string `json:"metrics" gorm:"column:metrics;type:nvarchar(max);not null"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
 func (AnalyticsQualityReport) TableName() string {
 	return "analytics_quality_reports"
 }
 
+// AnalyticsPipelineLog representa um log de execução do pipeline
 // AnalyticsPipelineLog representa um log de execução do pipeline
 type AnalyticsPipelineLog struct {
 	ID                   uint       `json:"id" gorm:"primaryKey;autoIncrement;column:id"`
@@ -133,9 +141,12 @@ type AnalyticsPipelineLog struct {
 	Status               string     `json:"status" gorm:"column:status;size:20;index"`
 	Phase                string     `json:"phase" gorm:"column:phase;size:50"`
 	RecordsProcessed     *int       `json:"records_processed" gorm:"column:records_processed"`
-	ErrorMessage         *string    `json:"error_message" gorm:"column:error_message;type:text"`
-	ExecutionTimeSeconds *int       `json:"execution_time_seconds" gorm:"column:execution_time_seconds"`
-	CreatedAt            time.Time  `json:"created_at" gorm:"autoCreateTime"`
+
+	// text -> nvarchar(max)
+	ErrorMessage *string `json:"error_message" gorm:"column:error_message;type:nvarchar(max)"`
+
+	ExecutionTimeSeconds *int      `json:"execution_time_seconds" gorm:"column:execution_time_seconds"`
+	CreatedAt            time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
 func (AnalyticsPipelineLog) TableName() string {

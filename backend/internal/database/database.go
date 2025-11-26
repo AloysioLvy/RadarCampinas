@@ -5,31 +5,31 @@ import (
 	"log"
 
 	"github.com/AloysioLvy/TccRadarCampinas/backend/internal/config"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 func Connect(cfg *config.Config) (*gorm.DB, error) {
-	// Construir DSN para MySQL
+	// Construir DSN para SQL Server
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=%s",
+		"sqlserver://%s:%s@%s:%s?database=%s",
 		cfg.DBUser,
 		cfg.DBPassword,
 		cfg.DBHost,
 		cfg.DBPort,
 		cfg.DBName,
-		"America%2FSao_Paulo", // URL encoded timezone
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(sqlserver.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
+		DisableForeignKeyConstraintWhenMigrating: true, // 👈 ESSENCIAL
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Println("✅ Conectado ao MySQL com sucesso!")
+	log.Println("✅ Conectado ao SQL Server com sucesso!")
 	return db, nil
 }
