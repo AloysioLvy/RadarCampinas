@@ -684,19 +684,12 @@ Este projeto está sob a licença MIT. Ver arquivo `LICENSE` para mais detalhes.
 ## 👥 Autores
 
 **TCC Radar Campinas Team**
-
-- 📧 Email: [seu-email@example.com](mailto:seu-email@example.com)
-- 🐙 GitHub: [@seu-usuario](https://github.com/seu-usuario)
-
+Miguel Moinhos Richena(https://github.com/MiguelRichena)
+Aloysio Alves Ribeiro(https://github.com/AloysioLvy)
+Diogo Lourenço Andrade(https://github.com/soothsayerdev)
 ---
 
-## 🙏 Agradecimentos
 
-- PostGIS por tornar consultas geoespaciais possíveis
-- Comunidade Go pela excelente documentação
-- GitHub Actions por facilitar CI/CD
-
----
 
 <div align="center">
 
