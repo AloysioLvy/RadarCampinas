@@ -53,7 +53,6 @@ export default function CampinasMap() {
     const cached = localStorage.getItem(cacheKey);
 
     if (cached) {
-      console.log("✅ Usando cache:", cacheKey);
       const parsed = JSON.parse(cached);
       drawRiskZones(parsed);
       return;
@@ -72,7 +71,6 @@ export default function CampinasMap() {
       }
 
       const data: MonthlyResponse = await res.json();
-      console.log("📦 GET Payload recebido:", data);
 
       // 🔥 Verifica se há previsões
       if (data.predictions && data.predictions.length > 0) {
@@ -99,7 +97,6 @@ export default function CampinasMap() {
         }
 
         const trainData = await trainRes.json();
-        console.log("📘 Treinamento concluído:", trainData);
 
         // 4️⃣ RETRY: Tenta GET novamente após treinar
         const retryRes = await fetch(getUrl, { method: "GET" });
@@ -109,7 +106,6 @@ export default function CampinasMap() {
         }
 
         const retryData: MonthlyResponse = await retryRes.json();
-        console.log("📦 Retry GET Payload recebido:", retryData);
 
         if (retryData.predictions && retryData.predictions.length > 0) {
           localStorage.setItem(cacheKey, JSON.stringify(retryData.predictions));
@@ -161,7 +157,6 @@ export default function CampinasMap() {
         .addTo(layersGroup.current);
     });
 
-    console.log(`✅ ${predictions.length} zonas desenhadas no mapa`);
   };
 
   // ==========================
@@ -205,7 +200,6 @@ export default function CampinasMap() {
       }).addTo(mapInstance.current);
 
       setMapLoaded(true);
-      console.log("🗺️ Mapa carregado");
     };
 
     loadMap();
