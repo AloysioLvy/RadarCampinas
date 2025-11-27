@@ -684,9 +684,9 @@ Este projeto está sob a licença MIT. Ver arquivo `LICENSE` para mais detalhes.
 ## 👥 Autores
 
 **TCC Radar Campinas Team**
-Miguel Moinhos Richena(https://github.com/MiguelRichena)
-Aloysio Alves Ribeiro(https://github.com/AloysioLvy)
-Diogo Lourenço Andrade(https://github.com/soothsayerdev)
+  * Miguel Moinhos Richena(https://github.com/MiguelRichena)
+  * Aloysio Alves Ribeiro(https://github.com/AloysioLvy)
+  * Diogo Lourenço Andrade(https://github.com/soothsayerdev)
 ---
 
 
